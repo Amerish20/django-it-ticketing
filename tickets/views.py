@@ -1,8 +1,10 @@
 from django.shortcuts import render, redirect
-from .models import User, Ticket, Item
+from .models import User, Ticket, Item, Department
 from django.contrib import messages
 from django.db.models import Q
 from django.contrib.auth.hashers import check_password
+from django.contrib.admin.views.decorators import staff_member_required
+from django.shortcuts import render
 
 def login_view(request):
     if request.method == 'POST':
@@ -10,9 +12,8 @@ def login_view(request):
         password = request.POST.get('password')
         try:
             user = User.objects.get(batch_number=batch_number, status=1)  # status is IntegerField
-            print(check_password(password, user.password))
             if password == user.password:
-                request.session['user_id'] = user.id
+                request.session['frontend_user_id'] = user.id
                 return redirect('create_ticket')
             else:
                 messages.error(request, 'Invalid password.')
@@ -21,7 +22,7 @@ def login_view(request):
     return render(request, 'login.html')
 
 def create_ticket(request):
-    user_id = request.session.get('user_id')
+    user_id = request.session.get('frontend_user_id')
     if not user_id:
         return redirect('login')
     user = User.objects.get(id=user_id)
@@ -41,3 +42,5 @@ def create_ticket(request):
 def logout_view(request):
     request.session.flush()
     return redirect('login')
+
+
