@@ -1,7 +1,33 @@
 {% extends "admin/base_site.html" %}
-{% load static %}
+{% load i18n static %}
 
+{# Change site header and page title #}
+{% block branding %}
+  <h1 id="site-name">
+    <a href="{% url 'admin:index' %}">Admin Portal</a>
+  </h1>
+{% endblock %}
+
+{# Fix logout link and remove theme toggle #}
+{% block usertools %}
+  <div id="user-tools">
+    {% if user.is_active and user.is_staff %}
+      {% trans 'Welcome,' %} {{ user.get_username }}.
+      <a href="{% url 'admin:password_change' %}">{% trans 'Change password' %}</a> /
+      <form id="logout-form" method="post" action="{% url 'admin:logout' %}" style="display: inline;">
+        {% csrf_token %}
+        <button type="submit" style="background: none; border: none; padding: 0; color: #fff; cursor: pointer;">
+          {% trans 'Log out' %}
+        </button>
+      </form>
+    {% endif %}
+  </div>
+{% endblock %}
+
+
+{# Keep favicon #}
 {% block extrahead %}
-    {{ block.super }}
-    <link rel="icon" href="{% static 'images/favicon.ico' %}" type="image/x-icon">
+  {{ block.super }}
+  <link rel="icon" href="{% static 'images/favicon.ico' %}" type="image/x-icon">
+  <link rel="stylesheet" href="{% static '/css/custom_admin.css' %}">
 {% endblock %}

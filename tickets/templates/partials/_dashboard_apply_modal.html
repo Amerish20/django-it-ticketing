@@ -1,0 +1,97 @@
+<div class="text-center mt-5">
+    <button class="btn btn-primary btn-lg" data-toggle="modal" data-target="#applicationModal">
+        <i class="fas fa-calendar-plus"></i> Apply
+    </button>
+</div>
+<!-- Request Form Modal -->
+<div class="modal fade" id="applicationModal" tabindex="-1" role="dialog" aria-labelledby="applicationModalLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <form method="post" action="{% url 'submit_application' %}">
+        {% csrf_token %}
+        <div class="modal-header">
+          <h5 class="modal-title" id="applicationModalLabel">Submit Request</h5>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+
+        <div class="modal-body">
+        <div class="container-fluid">
+            <div class="row">
+            <div class="form-group col-12">
+                <label for="request_form">Request Type</label>
+                <select name="request_form" id="request_form" class="form-control" required onchange="toggleFormSections()">
+                    <option value="">-- Select Request Type --</option>
+                    {% for form in request_forms %}
+                        <option value="{{ form.name|lower }}">{{ form.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Leave Form -->
+            <div id="leave-form" class="form-section d-none col-12">
+                <div class="form-group">
+                    <label for="leave_type">Leave Type</label>
+                    <select name="leave_type" class="form-control" required>
+                        <option value="">-- Select Leave Type --</option>
+                        {% for leave_type in leave_types %}
+                            <option value="{{ leave_type.id }}">{{ leave_type.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- From Date -->
+                <div class="form-group">
+                    <label for="from_date">From Date</label>
+                    <input type="date" name="from_date" id="from_date" class="form-control"
+                        onclick="this.showPicker()" onchange="calculateTotalDays()" required>
+                </div>
+
+                <!-- To Date -->
+                <div class="form-group">
+                    <label for="to_date">To Date</label>
+                    <input type="date" name="to_date" id="to_date" class="form-control"
+                        onclick="this.showPicker()" onchange="calculateTotalDays()" required>
+                </div>
+
+                <!-- Total Days (Initially Hidden) -->
+                <div class="form-group d-none" id="total-days-container">
+                    <label for="total_days">Total Days</label>
+                    <input type="number" name="total_days" id="total_days" class="form-control" readonly>
+                </div>
+                
+                <div class="form-group">
+                    <label for="remarks">Remarks</label>
+                    <textarea name="remarks" class="form-control" rows="3" required></textarea>
+                </div>
+            </div>
+
+            <!-- Clearance -->
+            <div id="clearance-form" class="form-section d-none col-12">
+                <div class="form-group">
+                    <label>Clearance Details</label>
+                    <input type="text" name="clearance_info" class="form-control">
+                </div>
+            </div>
+
+            <!-- Salary Advance -->
+            <div id="salary-form" class="form-section d-none col-12">
+                <div class="form-group">
+                    <label>Salary Advance Amount</label>
+                    <input type="number" name="advance_amount" class="form-control">
+                </div>
+            </div>
+            </div>
+        </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="reset" class="btn btn-info">Reset</button>
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+          <button type="submit" class="btn btn-success">Submit</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,323 @@
+
+{% extends 'base.html' %}
+{% block title %}My Applications{% endblock %}
+
+{% block content %}
+{% include 'partials/_dashboard_apply_modal.html' %}
+<div class="container mt-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3 class="mb-0"><i class="fas fa-calendar-check text-primary"></i> My Applications</h3>
+        
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-hover table-bordered shadow-sm" id="applicationsTable">
+            <thead class="thead-light">
+                <tr>
+                    <th>#</th>
+                    <th>Request Type</th>
+                    <th>Leave Type</th>
+                    <th>From</th>
+                    <th>To</th>
+                    <th>Total Days</th>
+                    <th>Status</th>
+                    <th>Remarks</th>
+                    <th class="text-center">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for app in applications %}
+                <tr>
+                    <td>{{ forloop.counter }}</td>
+                    <td>{{ app.request_form.name }}</td>
+                    <td>
+                    {% if app.leave_type %}
+                        {{ app.leave_type.name }}
+                    {% else %}
+                        -
+                    {% endif %}
+                    </td>
+                    <td>{{ app.from_date }}</td>
+                    <td>{{ app.to_date }}</td>
+                    <td>{{ app.total_days }}</td>
+                    <td>
+                        <span class="badge 
+                            {% if app.status == 'Pending' %}badge-warning
+                            {% elif app.status == 'Approved' %}badge-success
+                            {% elif app.status == 'Rejected' %}badge-danger
+                            {% else %}badge-secondary{% endif %}">
+                            {{ app.status }}
+                        </span>
+                    </td>
+                    <td>{{ app.remarks }}</td>
+                    <td class="text-center">
+                        {% if app.status == 'Pending' %}
+                        <div class="d-flex justify-content-center gap-2">
+                            <button class="btn btn-sm btn-outline-warning" onclick="openEditModal({{ app.id }})" title="Edit">
+                            <i class="fas fa-edit"></i>
+                            </button>&nbsp;
+                            <button class="btn btn-sm btn-outline-danger" onclick="deleteApplication({{ app.id }})" title="Delete">
+                            <i class="fas fa-trash-alt"></i>
+                            </button>
+                        </div>
+                        {% else %}
+                        <span class="text-muted small">N/A</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Edit Modal -->
+<div class="modal fade" id="editApplicationModal" tabindex="-1" role="dialog" aria-labelledby="editModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content border-0 shadow-lg" id="editApplicationContent">
+            <!-- Modal content loaded by AJAX -->
+        </div>
+    </div>
+</div>
+
+{% if messages %}
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      {% for message in messages %}
+        Swal.fire({
+          icon: 'success',
+          title: 'Success',
+          text: '{{ message|escapejs }}',
+          timer: 3000,
+          showConfirmButton: false
+        });
+      {% endfor %}
+    });
+  </script>
+{% endif %}
+
+<script>
+/* ---------- helper: parse date robustly ---------- */
+function parseDateFlexible(val) {
+  if (!val) return null;
+  // YYYY-MM-DD
+  if (val.indexOf('-') !== -1) {
+    const parts = val.split('-').map(s => s.trim());
+    if (parts.length === 3) {
+      const y = parseInt(parts[0], 10),
+            m = parseInt(parts[1], 10) - 1,
+            d = parseInt(parts[2], 10);
+      return new Date(y, m, d);
+    }
+  }
+  // MM/DD/YYYY
+  if (val.indexOf('/') !== -1) {
+    const parts = val.split('/').map(s => s.trim());
+    if (parts.length === 3) {
+      const m = parseInt(parts[0], 10) - 1,
+            d = parseInt(parts[1], 10),
+            y = parseInt(parts[2], 10);
+      return new Date(y, m, d);
+    }
+  }
+  // fallback
+  const dt = new Date(val);
+  return isNaN(dt) ? null : dt;
+}
+
+/* ---------- calculates inclusive day count ---------- */
+function calculateDaysBetween(fromVal, toVal) {
+  const fromDate = parseDateFlexible(fromVal);
+  const toDate = parseDateFlexible(toVal);
+  if (!fromDate || !toDate || isNaN(fromDate) || isNaN(toDate)) return null;
+  if (toDate < fromDate) return null;
+  const diff = Math.floor((toDate - fromDate) / (1000 * 60 * 60 * 24)) + 1;
+  return diff > 0 ? diff : null;
+}
+
+/* ---------- setup function called AFTER modal HTML is injected ---------- */
+function setupTotalDaysCalculator() {
+
+  // query inside modal content to avoid picking other inputs on page
+  const modalRoot = document.getElementById('editApplicationContent');
+  if (!modalRoot) { console.error('[TD] modal root not found'); return; }
+
+  const fromInput = modalRoot.querySelector('input[name="from_date"]');
+  const toInput   = modalRoot.querySelector('input[name="to_date"]');
+  const totalDaysInput = modalRoot.querySelector('#total_days');
+
+  if (!fromInput || !toInput || !totalDaysInput) {
+    return;
+  }
+
+  // avoid attaching listeners twice to the same element
+  if (fromInput.dataset.tdAttached === '1' || toInput.dataset.tdAttached === '1') {
+  } else {
+    const handler = function () {
+      const days = calculateDaysBetween(fromInput.value, toInput.value);
+      if (days === null) {
+        totalDaysInput.value = '';
+      } else {
+        totalDaysInput.value = days;
+      }
+    };
+
+    // conservative set of events to catch both native and typing/datepicker changes
+    ['change','input','keyup','blur'].forEach(ev => {
+      fromInput.addEventListener(ev, handler);
+      toInput.addEventListener(ev, handler);
+    });
+
+    // If jQuery and bootstrap/jQuery datepicker used, also bind their events
+    if (window.jQuery) {
+      try {
+        const $from = window.jQuery(fromInput);
+        const $to   = window.jQuery(toInput);
+        // jQuery UI datepicker / common event
+        $from.on('change', handler);
+        $to.on('change', handler);
+        // bootstrap-datepicker's event
+        $from.on('changeDate', handler);
+        $to.on('changeDate', handler);
+      } catch (err) {
+
+      }
+    }
+
+    // mark attached so we don't double-attach if called again
+    fromInput.dataset.tdAttached = '1';
+    toInput.dataset.tdAttached = '1';
+  }
+
+  // initial calculation (immediately show initial total_days)
+  const initial = calculateDaysBetween(fromInput.value, toInput.value);
+  if (initial === null) {
+    totalDaysInput.value = totalDaysInput.value || ''; // keep whatever server sent or blank
+  } else {
+    totalDaysInput.value = initial;
+  }
+}
+
+/* ---------- open modal: fetch HTML then inject & setup ---------- */
+function openEditModal(appId) {
+  fetch(`/edit-application/${appId}/`)
+    .then(response => {
+      if (!response.ok) throw new Error('Network response was not ok');
+      return response.text();
+    })
+    .then(html => {
+      document.getElementById('editApplicationContent').innerHTML = html;
+      // show bootstrap modal (v4/v5 compatible)
+      const $modal = window.jQuery ? window.jQuery('#editApplicationModal') : null;
+      if ($modal && typeof $modal.modal === 'function') {
+        $modal.modal('show');
+      } else if (typeof bootstrap !== 'undefined') {
+        const modalEl = document.getElementById('editApplicationModal');
+        new bootstrap.Modal(modalEl).show();
+      } else {
+        // fallback: just make it visible
+        document.getElementById('editApplicationModal').classList.add('show');
+      }
+
+      // small timeout to ensure DOM insertion done (often immediate but safe)
+      setTimeout(setupTotalDaysCalculator, 10);
+    })
+    .catch(err => {
+    });
+}
+
+// Edit section
+$(document).on("click", "#editSave", function() {
+    const form = $("#editApplicationForm");
+    const applicationId = form.find('input[name="application_id"]').val();
+
+    $.ajax({
+        url: `/edit-application/${applicationId}/`,
+        type: "POST",
+        data: form.serialize(),
+        success: function(response) {
+            if (response.success) {
+                Swal.fire({
+                    icon: "success",
+                    title: "Updated!",
+                    text: "Application has been updated successfully.",
+                    timer: 2000,
+                    showConfirmButton: false
+                }).then(() => {
+                    $('#editApplicationModal').modal('hide');  // hide modal after success
+                    location.reload();  // reload page or update UI as needed
+                });
+            } else {
+                Swal.fire({
+                    icon: "error",
+                    title: "Error",
+                    text: response.error || "Something went wrong."
+                });
+            }
+        },
+        error: function() {
+            Swal.fire({
+                icon: "error",
+                title: "Oops...",
+                text: "Server error occurred."
+            });
+        }
+    });
+});
+
+//Delete section
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let cookie of cookies) {
+            cookie = cookie.trim();
+            if (cookie.startsWith(name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+function deleteApplication(appId) {
+    Swal.fire({
+        title: 'Are you sure?',
+        text: "You want to mark this application as deleted?",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Yes, delete it!'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            $.ajax({
+                url: `/delete-application/${appId}/`,
+                type: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                success: function(data) {
+                    if (data.success) {
+                        Swal.fire(
+                            'Deleted!',
+                            'Application marked as deleted.',
+                            'success'
+                        ).then(() => {
+                            location.reload();
+                        });
+                    } else {
+                        Swal.fire('Error!', data.error || 'Failed to delete.', 'error');
+                    }
+                },
+                error: function() {
+                    Swal.fire('Error!', 'Server error occurred.', 'error');
+                }
+            });
+        }
+    });
+}
+</script>
+
+{% endblock %}

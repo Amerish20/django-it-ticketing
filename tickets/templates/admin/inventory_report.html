@@ -51,10 +51,10 @@
                 Download PDF
             </a>
 
-            <a href="?user={{ request.GET.user }}&department={{ request.GET.department }}&inventory_item={{ request.GET.inventory_item }}&from_date={{ request.GET.from_date }}&to_date={{ request.GET.to_date }}&export=excel" 
+            {% comment %} <a href="?user={{ request.GET.user }}&department={{ request.GET.department }}&inventory_item={{ request.GET.inventory_item }}&from_date={{ request.GET.from_date }}&to_date={{ request.GET.to_date }}&export=excel" 
             class="button" style="padding: 6px 12px; background-color: #28a745; color: #fff; border: none; border-radius: 4px; text-decoration: none;">
                 Download Excel
-            </a>
+            </a> {% endcomment %}
         </div>
     </form>
 

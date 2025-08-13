@@ -9,19 +9,24 @@ from django.utils.html import format_html
 from xhtml2pdf import pisa
 import datetime
 import csv
+from urllib.parse import urlencode
+from django.shortcuts import redirect
 from django.contrib.admin.sites import site as admin_site
+from .forms import ApplicationAdminForm
+from .models import (
+    User, Ticket, Department, Designation, Item, Inventory,
+    InventoryItem, InventoryReport, RequestForm, LeaveType,
+    Nationality, DepartmentHead, Application
+)
 
-from .models import User, Ticket, Department, Item, Inventory, InventoryItem,InventoryReport
-
-admin.site.site_header = "IT Ticketing Admin"
-admin.site.site_title = "IT Ticketing Admin Portal"
-admin.site.index_title = "Welcome to IT Ticketing System"
+admin.site.index_title = "Welcome to Al Wataniya Concrete Admin Portal"
 
 
 @admin.register(Department)
 class DepartmentAdmin(admin.ModelAdmin):
     list_display = ('name', 'status')
     list_filter = ('status',)
+    list_per_page = 20
 
 
 @admin.register(Item)
@@ -30,17 +35,237 @@ class ItemAdmin(admin.ModelAdmin):
     list_filter = ('status',)
 
 
+@admin.register(Designation)
+class DesignationAdmin(admin.ModelAdmin):
+    list_display = ('name', 'status')
+    list_filter = ('status',)
+    list_per_page = 20
+
+
+@admin.register(Nationality)
+class NationalityAdmin(admin.ModelAdmin):
+    list_display = ('name', 'status')
+    list_filter = ('status',)
+    search_fields = ('name',)
+
 @admin.register(User)
 class UserAdmin(admin.ModelAdmin):
-    list_display = ('name', 'batch_number', 'department', 'mobile_number','status', 'password')
+    list_display = (
+        'name',
+        'batch_number',
+        'department',
+        'designation',
+        'mobile_number',
+        'qid',
+        'qid_expiry_date',
+        'nationality',
+        'passport_number',
+        'passport_expiry_date',
+        'marital_status',
+        'status',
+        'password',
+    )
+    list_filter = (
+        'department', 'status','nationality','designation'
+    )
     search_fields = ('name', 'batch_number')
+    list_per_page = 20
+    
 
+@admin.register(Application)
+class ApplicationAdmin(admin.ModelAdmin):
+    form = ApplicationAdminForm
+    
+    all_fields = (
+        'user_batch_number',
+        'user_name',
+        'user_department',
+        'user_designation',
+        'user_nationality',
+        'user_qid',
+        'leave_type',
+        'colored_status',
+        'from_date',
+        'to_date',
+        'total_days',
+        'remarks_dep_head',
+        'dep_head_status_display',  # use colored display here
+        'remarks_hr',
+        'hr_status_display',        # use colored display here
+        'remarks_gm',
+        'gm_status_display',        # use colored display here
+        'entry_date',
+    )
+
+    limited_fields = (
+        'user_batch_number',
+        'user_name',
+        'user_department',
+        'leave_type',
+        'from_date',
+        'to_date',
+        'total_days',
+        'colored_status',
+    )
+
+    list_per_page = 20
+    list_filter = (
+        'dep_head_status', 'hr_status', 'gm_status',
+        'leave_type', 'from_date', 'to_date',
+        'user__department', 'user__nationality'
+    )
+    search_fields = (
+        'user__name', 'user__batch_number',
+        'leave_type__name',
+        'dep_head_status', 'hr_status', 'gm_status'
+    )
+
+    actions = [
+        'approve_stage', 'reject_stage', 'soft_delete_selected'
+    ]
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        auth_user = request.user
+
+        try:
+            custom_user = User.objects.get(name=auth_user.username)
+        except User.DoesNotExist:
+            return qs
+
+        if auth_user.is_superuser:
+            return qs
+
+        active_status_value = 1
+        dep_ids = DepartmentHead.objects.filter(
+            user=custom_user, status=active_status_value
+        ).values_list('department', flat=True)
+
+        if dep_ids.exists():
+            return qs.filter(user__department__in=dep_ids, delete_status=False)
+
+        return qs.filter(user=custom_user, delete_status=False)
+
+    def approve_stage(self, request, queryset):
+        stage_field = self._get_stage_field(request)
+        updated = queryset.update(**{stage_field: 'Approved'})
+        self.message_user(request, f"{updated} applications approved at your stage.")
+
+    approve_stage.short_description = "Approve selected applicants"
+
+    def reject_stage(self, request, queryset):
+        stage_field = self._get_stage_field(request)
+        updated = queryset.update(**{stage_field: 'Rejected'})
+        self.message_user(request, f"{updated} applications rejected at your stage.")
+
+    reject_stage.short_description = "Reject selected applicants"
+
+    def _get_stage_field(self, request):
+        if request.user.is_superuser:
+            return 'gm_status'
+        if request.user.groups.filter(name='DepartmentHead').exists():
+            return 'dep_head_status'
+        if request.user.groups.filter(name='HR').exists():
+            return 'hr_status'
+        if request.user.groups.filter(name='GM').exists():
+            return 'gm_status'
+        return 'dep_head_status'  # fallback
+
+    def soft_delete_selected(self, request, queryset):
+        updated = queryset.update(delete_status=True)
+        self.message_user(request, f"{updated} applications marked as deleted.")
+    soft_delete_selected.short_description = "Delete selected applicants"
+
+    def get_actions(self, request):
+        actions = super().get_actions(request)
+        if 'delete_selected' in actions:
+            del actions['delete_selected']
+        if not request.user.is_superuser and 'soft_delete_selected' in actions:
+            del actions['soft_delete_selected']
+        return actions
+
+    def get_list_display(self, request):
+        return self.all_fields if request.user.is_superuser else self.limited_fields
+
+    def colored_status(self, obj):
+        status_text = obj.final_status()
+        color_map = {
+            'Pending': "#f7fb09d9",
+            'Approved': '#5cb85c',
+            'Rejected by GM': '#d9534f',
+            'Rejected by HR': '#d9534f',
+            'Rejected by Department Head': '#d9534f',
+        }
+        bg_color = color_map.get(status_text, "")
+        return format_html(
+            '<span style="background-color: {}; color: Black; padding: 2px 4px; '
+            'border-radius: 4px; font-weight: bold;">{}</span>',
+            bg_color,
+            status_text,
+        )
+    colored_status.short_description = 'Status'
+
+    # Colored status display helpers for individual stages
+    def _colored_stage_status(self, status):
+        color_map = {
+            'Pending': "#f7fb09d9",   # yellow/orange
+            'Approved': '#5cb85c',  # green
+            'Rejected': '#d9534f',  # red
+        }
+        color = color_map.get(status, 'gray')
+        return format_html(
+            '<span style="background-color: {}; color: Black; padding: 2px 4px; border-radius: 4px; font-weight: bold;">{}</span>',
+            color,
+            status or 'Pending'
+        )
+
+    def dep_head_status_display(self, obj):
+        return self._colored_stage_status(obj.dep_head_status)
+    dep_head_status_display.short_description = "Department Head Status"
+    dep_head_status_display.admin_order_field = "dep_head_status"
+
+    def hr_status_display(self, obj):
+        return self._colored_stage_status(obj.hr_status)
+    hr_status_display.short_description = "HR Status"
+    hr_status_display.admin_order_field = "hr_status"
+
+    def gm_status_display(self, obj):
+        return self._colored_stage_status(obj.gm_status)
+    gm_status_display.short_description = "GM Status"
+    gm_status_display.admin_order_field = "gm_status"
+
+    # User info methods
+    def user_name(self, obj): return obj.user.name
+    def user_batch_number(self, obj): return obj.user.batch_number
+    def user_department(self, obj): return obj.user.department.name if obj.user.department else '—'
+    def user_nationality(self, obj): return obj.user.nationality.name if obj.user.nationality else '—'
+    def user_designation(self, obj): return obj.user.designation.name if obj.user.designation else '—'
+    def user_qid(self, obj): return obj.user.qid or '—'
+
+    user_name.short_description = 'Name'
+    user_batch_number.short_description = 'Batch #'
+    user_department.short_description = 'Department'
+    user_nationality.short_description = 'Nationality'
+    user_designation.short_description = 'Designation'
+    user_qid.short_description = 'QID'
+
+    class Media:
+        js = (
+            'admin/js/core.js',
+            'admin/js/vendor/jquery/jquery.js',
+            'admin/js/jquery.init.js',
+            'js/calculate_days.js',
+        )
+        css = {
+            'all': ('css/admin/custom_admin.css',)
+        }
 
 @admin.register(Ticket)
 class TicketAdmin(admin.ModelAdmin):
     list_display = ('user_name', 'user_batch_number', 'user_department', 'item', 'status', 'request_date')
     list_filter = ('status', 'item', 'user__department')
     search_fields = ('user__name', 'user__batch_number', 'item__name', 'description')
+    list_per_page = 20
 
     def user_name(self, obj): return obj.user.name
     def user_batch_number(self, obj): return obj.user.batch_number
@@ -55,6 +280,7 @@ class TicketAdmin(admin.ModelAdmin):
 class InventoryItemAdmin(admin.ModelAdmin):
     list_display = ('name', 'manufacturer', 'serial_number', 'asset_code', 'buy_date', 'status')
     search_fields = ('name', 'serial_number', 'asset_code')
+    list_per_page = 20
 
 
 @admin.register(Inventory)
@@ -68,6 +294,7 @@ class InventoryAdmin(admin.ModelAdmin):
         'inventory_item__serial_number', 'inventory_item__name',
         'user__name',
     )
+    list_per_page = 20
     actions = ['generate_combined_pdf']
 
     def print_pdf_link(self, obj):
@@ -179,7 +406,8 @@ def inventory_report_view(request):
             writer.writerow([
                 f'Name: {selected_user_obj.name}',
                 f'Batch Number: {selected_user_obj.batch_number}',
-                f'Department: {selected_user_obj.department.name if selected_user_obj.department else ""}'
+                f'Department: {selected_user_obj.department.name if selected_user_obj.department else ""}',
+                f'Mobile Number: {selected_user_obj.mobile_number if selected_user_obj.mobile_number else ""}'
             ])
             writer.writerow([])
 
@@ -236,3 +464,23 @@ def inventory_report_view(request):
 class ReportAdmin(admin.ModelAdmin):
     def changelist_view(self, request, extra_context=None):
         return HttpResponseRedirect(reverse('admin:inventory_report'))
+
+@admin.register(RequestForm)
+class RequestFormAdmin(admin.ModelAdmin):
+    list_display = ('name', 'status')
+    list_filter = ('status',)
+    search_fields = ('name',)
+
+@admin.register(LeaveType)
+class LeaveTypeAdmin(admin.ModelAdmin):
+    list_display = ('name','request_form', 'status')
+    list_filter = ('status',)
+    search_fields = ('name',)
+
+@admin.register(DepartmentHead)
+class DepartmentHeadAdmin(admin.ModelAdmin):
+    list_display = ('department','user', 'status')
+    list_filter = ('status', 'department')
+    search_fields = ('user__name', 'department__name')
+    list_per_page = 20
+

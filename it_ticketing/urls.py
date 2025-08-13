@@ -16,8 +16,10 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path,include
+from tickets.views import custom_logout
 
 urlpatterns = [
+    path('admin/logout/', custom_logout, name='custom_admin_logout'),
     path('admin/', admin.site.urls),
     path('', include('tickets.urls')),
 ]
