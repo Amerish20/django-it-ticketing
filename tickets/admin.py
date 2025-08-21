@@ -13,44 +13,127 @@ from urllib.parse import urlencode
 from django.shortcuts import redirect
 from django.contrib.admin.sites import site as admin_site
 from .forms import ApplicationAdminForm
+from django.db.models import Q
+from django.contrib.admin.views.main import ChangeList
 from .models import (
     User, Ticket, Department, Designation, Item, Inventory,
     InventoryItem, InventoryReport, RequestForm, LeaveType,
     Nationality, DepartmentHead, Application
 )
 
+admin.site.site_header = "Welcome to Al Wataniya Concrete Admin Portal"
+admin.site.site_title = "Al Wataniya Concrete – Admin Portal"
 admin.site.index_title = "Welcome to Al Wataniya Concrete Admin Portal"
 
 
 @admin.register(Department)
 class DepartmentAdmin(admin.ModelAdmin):
-    list_display = ('name', 'status')
+    list_display = ('id','name', 'status')
     list_filter = ('status',)
+    search_fields = ('name',)
     list_per_page = 20
+    actions = ['mark_inactive', 'mark_active']
 
+    # Action to mark selected departments inactive
+    def mark_inactive(self, request, queryset):
+        updated = queryset.update(status=0)
+        self.message_user(request, f"{updated} departments marked as inactive.")
+    mark_inactive.short_description = "Mark selected departments as inactive"
+
+    # Action to mark selected departments active
+    def mark_active(self, request, queryset):
+        updated = queryset.update(status=1)
+        self.message_user(request, f"{updated} departments marked as active.")
+    mark_active.short_description = "Mark selected departments as active"
+
+    # Remove default delete_selected action
+    def get_actions(self, request):
+        actions = super().get_actions(request)
+        if 'delete_selected' in actions:
+            del actions['delete_selected']
+        return actions
 
 @admin.register(Item)
 class ItemAdmin(admin.ModelAdmin):
-    list_display = ('name', 'status')
+    list_display = ('id','name', 'status')
     list_filter = ('status',)
+    search_fields = ('name',)
+    list_per_page = 20
+    actions = ['mark_inactive', 'mark_active']
+
+    def mark_inactive(self, request, queryset):
+        updated = queryset.update(status=0)
+        self.message_user(request, f"{updated} item marked as inactive.")
+    mark_inactive.short_description = "Mark selected item as inactive"
+
+    def mark_active(self, request, queryset):
+        updated = queryset.update(status=1)
+        self.message_user(request, f"{updated} item marked as active.")
+    mark_active.short_description = "Mark selected item as active"
+
+    # Remove default delete_selected action
+    def get_actions(self, request):
+        actions = super().get_actions(request)
+        if 'delete_selected' in actions:
+            del actions['delete_selected']
+        return actions
 
 
 @admin.register(Designation)
 class DesignationAdmin(admin.ModelAdmin):
-    list_display = ('name', 'status')
+    list_display = ('id','name', 'status')
     list_filter = ('status',)
+    search_fields = ('name',)
     list_per_page = 20
+    actions = ['mark_inactive', 'mark_active']
+
+    def mark_inactive(self, request, queryset):
+        updated = queryset.update(status=0)
+        self.message_user(request, f"{updated} designation as inactive.")
+    mark_inactive.short_description = "Mark selected designation as inactive"
+
+    def mark_active(self, request, queryset):
+        updated = queryset.update(status=1)
+        self.message_user(request, f"{updated} designation marked as active.")
+    mark_active.short_description = "Mark selected designation as active"
+
+    # Remove default delete_selected action
+    def get_actions(self, request):
+        actions = super().get_actions(request)
+        if 'delete_selected' in actions:
+            del actions['delete_selected']
+        return actions
 
 
 @admin.register(Nationality)
 class NationalityAdmin(admin.ModelAdmin):
-    list_display = ('name', 'status')
+    list_display = ('id','name', 'status')
     list_filter = ('status',)
     search_fields = ('name',)
+    list_per_page = 20
+    actions = ['mark_inactive', 'mark_active']
+
+    def mark_inactive(self, request, queryset):
+        updated = queryset.update(status=0)
+        self.message_user(request, f"{updated} nationality as inactive.")
+    mark_inactive.short_description = "Mark selected nationality as inactive"
+
+    def mark_active(self, request, queryset):
+        updated = queryset.update(status=1)
+        self.message_user(request, f"{updated} nationality marked as active.")
+    mark_active.short_description = "Mark selected nationality as active"
+
+    # Remove default delete_selected action
+    def get_actions(self, request):
+        actions = super().get_actions(request)
+        if 'delete_selected' in actions:
+            del actions['delete_selected']
+        return actions
 
 @admin.register(User)
 class UserAdmin(admin.ModelAdmin):
     list_display = (
+        'id',
         'name',
         'batch_number',
         'department',
@@ -70,202 +153,70 @@ class UserAdmin(admin.ModelAdmin):
     )
     search_fields = ('name', 'batch_number')
     list_per_page = 20
-    
 
-@admin.register(Application)
-class ApplicationAdmin(admin.ModelAdmin):
-    form = ApplicationAdminForm
-    
-    all_fields = (
-        'user_batch_number',
-        'user_name',
-        'user_department',
-        'user_designation',
-        'user_nationality',
-        'user_qid',
-        'leave_type',
-        'colored_status',
-        'from_date',
-        'to_date',
-        'total_days',
-        'remarks_dep_head',
-        'dep_head_status_display',  # use colored display here
-        'remarks_hr',
-        'hr_status_display',        # use colored display here
-        'remarks_gm',
-        'gm_status_display',        # use colored display here
-        'entry_date',
-    )
+    actions = ['mark_inactive', 'mark_active']
 
-    limited_fields = (
-        'user_batch_number',
-        'user_name',
-        'user_department',
-        'leave_type',
-        'from_date',
-        'to_date',
-        'total_days',
-        'colored_status',
-    )
+    def mark_inactive(self, request, queryset):
+        updated = queryset.update(status=0)
+        self.message_user(request, f"{updated} user marked as inactive.")
+    mark_inactive.short_description = "Mark selected user as inactive"
 
-    list_per_page = 20
-    list_filter = (
-        'dep_head_status', 'hr_status', 'gm_status',
-        'leave_type', 'from_date', 'to_date',
-        'user__department', 'user__nationality'
-    )
-    search_fields = (
-        'user__name', 'user__batch_number',
-        'leave_type__name',
-        'dep_head_status', 'hr_status', 'gm_status'
-    )
+    def mark_active(self, request, queryset):
+        updated = queryset.update(status=1)
+        self.message_user(request, f"{updated} user marked as active.")
+    mark_active.short_description = "Mark selected user as active"
 
-    actions = [
-        'approve_stage', 'reject_stage', 'soft_delete_selected'
-    ]
-
-    def get_queryset(self, request):
-        qs = super().get_queryset(request)
-        auth_user = request.user
-
-        try:
-            custom_user = User.objects.get(name=auth_user.username)
-        except User.DoesNotExist:
-            return qs
-
-        if auth_user.is_superuser:
-            return qs
-
-        active_status_value = 1
-        dep_ids = DepartmentHead.objects.filter(
-            user=custom_user, status=active_status_value
-        ).values_list('department', flat=True)
-
-        if dep_ids.exists():
-            return qs.filter(user__department__in=dep_ids, delete_status=False)
-
-        return qs.filter(user=custom_user, delete_status=False)
-
-    def approve_stage(self, request, queryset):
-        stage_field = self._get_stage_field(request)
-        updated = queryset.update(**{stage_field: 'Approved'})
-        self.message_user(request, f"{updated} applications approved at your stage.")
-
-    approve_stage.short_description = "Approve selected applicants"
-
-    def reject_stage(self, request, queryset):
-        stage_field = self._get_stage_field(request)
-        updated = queryset.update(**{stage_field: 'Rejected'})
-        self.message_user(request, f"{updated} applications rejected at your stage.")
-
-    reject_stage.short_description = "Reject selected applicants"
-
-    def _get_stage_field(self, request):
-        if request.user.is_superuser:
-            return 'gm_status'
-        if request.user.groups.filter(name='DepartmentHead').exists():
-            return 'dep_head_status'
-        if request.user.groups.filter(name='HR').exists():
-            return 'hr_status'
-        if request.user.groups.filter(name='GM').exists():
-            return 'gm_status'
-        return 'dep_head_status'  # fallback
-
-    def soft_delete_selected(self, request, queryset):
-        updated = queryset.update(delete_status=True)
-        self.message_user(request, f"{updated} applications marked as deleted.")
-    soft_delete_selected.short_description = "Delete selected applicants"
-
+    # Remove default delete_selected action
     def get_actions(self, request):
         actions = super().get_actions(request)
         if 'delete_selected' in actions:
             del actions['delete_selected']
-        if not request.user.is_superuser and 'soft_delete_selected' in actions:
-            del actions['soft_delete_selected']
         return actions
+    
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == "department":
+            kwargs["queryset"] = Department.objects.filter(status=1)  # Only active departments
+        elif db_field.name == "nationality":
+            kwargs["queryset"] = Nationality.objects.filter(status=1)  # Only active nationalities
+        elif db_field.name == "designation":
+            kwargs["queryset"] = Designation.objects.filter(status=1)  # Only active designations
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
+    # Hide password column from the list view for non-superusers
     def get_list_display(self, request):
-        return self.all_fields if request.user.is_superuser else self.limited_fields
+        list_display = list(super().get_list_display(request))
+        if not request.user.is_superuser:
+            if 'password' in list_display:
+                list_display.remove('password')
+        return list_display
 
-    def colored_status(self, obj):
-        status_text = obj.final_status()
-        color_map = {
-            'Pending': "#f7fb09d9",
-            'Approved': '#5cb85c',
-            'Rejected by GM': '#d9534f',
-            'Rejected by HR': '#d9534f',
-            'Rejected by Department Head': '#d9534f',
-        }
-        bg_color = color_map.get(status_text, "")
-        return format_html(
-            '<span style="background-color: {}; color: Black; padding: 2px 4px; '
-            'border-radius: 4px; font-weight: bold;">{}</span>',
-            bg_color,
-            status_text,
-        )
-    colored_status.short_description = 'Status'
-
-    # Colored status display helpers for individual stages
-    def _colored_stage_status(self, status):
-        color_map = {
-            'Pending': "#f7fb09d9",   # yellow/orange
-            'Approved': '#5cb85c',  # green
-            'Rejected': '#d9534f',  # red
-        }
-        color = color_map.get(status, 'gray')
-        return format_html(
-            '<span style="background-color: {}; color: Black; padding: 2px 4px; border-radius: 4px; font-weight: bold;">{}</span>',
-            color,
-            status or 'Pending'
-        )
-
-    def dep_head_status_display(self, obj):
-        return self._colored_stage_status(obj.dep_head_status)
-    dep_head_status_display.short_description = "Department Head Status"
-    dep_head_status_display.admin_order_field = "dep_head_status"
-
-    def hr_status_display(self, obj):
-        return self._colored_stage_status(obj.hr_status)
-    hr_status_display.short_description = "HR Status"
-    hr_status_display.admin_order_field = "hr_status"
-
-    def gm_status_display(self, obj):
-        return self._colored_stage_status(obj.gm_status)
-    gm_status_display.short_description = "GM Status"
-    gm_status_display.admin_order_field = "gm_status"
-
-    # User info methods
-    def user_name(self, obj): return obj.user.name
-    def user_batch_number(self, obj): return obj.user.batch_number
-    def user_department(self, obj): return obj.user.department.name if obj.user.department else '—'
-    def user_nationality(self, obj): return obj.user.nationality.name if obj.user.nationality else '—'
-    def user_designation(self, obj): return obj.user.designation.name if obj.user.designation else '—'
-    def user_qid(self, obj): return obj.user.qid or '—'
-
-    user_name.short_description = 'Name'
-    user_batch_number.short_description = 'Batch #'
-    user_department.short_description = 'Department'
-    user_nationality.short_description = 'Nationality'
-    user_designation.short_description = 'Designation'
-    user_qid.short_description = 'QID'
-
-    class Media:
-        js = (
-            'admin/js/core.js',
-            'admin/js/vendor/jquery/jquery.js',
-            'admin/js/jquery.init.js',
-            'js/calculate_days.js',
-        )
-        css = {
-            'all': ('css/admin/custom_admin.css',)
-        }
+    # Hide password field when editing an existing user
+    def get_fieldsets(self, request, obj=None):
+        fieldsets = super().get_fieldsets(request, obj)
+        if not request.user.is_superuser:
+            if obj:  # Editing an existing user
+                new_fieldsets = []
+                for name, opts in fieldsets:
+                    fields = list(opts.get('fields', []))
+                    if 'password' in fields:
+                        fields.remove('password')
+                    new_fieldsets.append((name, {'fields': fields}))
+                return new_fieldsets
+        return fieldsets
 
 @admin.register(Ticket)
 class TicketAdmin(admin.ModelAdmin):
-    list_display = ('user_name', 'user_batch_number', 'user_department', 'item', 'status', 'request_date')
+    list_display = ('id','user_name', 'user_batch_number', 'user_department', 'item', 'status', 'request_date')
     list_filter = ('status', 'item', 'user__department')
     search_fields = ('user__name', 'user__batch_number', 'item__name', 'description')
     list_per_page = 20
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == "user":
+            kwargs["queryset"] = User.objects.filter(status=1)  # Only active users
+        elif db_field.name == "item":
+            kwargs["queryset"] = Item.objects.filter(status=1)  # Only active items
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
     def user_name(self, obj): return obj.user.name
     def user_batch_number(self, obj): return obj.user.batch_number
@@ -278,9 +229,28 @@ class TicketAdmin(admin.ModelAdmin):
 
 @admin.register(InventoryItem)
 class InventoryItemAdmin(admin.ModelAdmin):
-    list_display = ('name', 'manufacturer', 'serial_number', 'asset_code', 'buy_date', 'status')
-    search_fields = ('name', 'serial_number', 'asset_code')
+    list_display = ('inventory_id','name', 'manufacturer', 'serial_number', 'asset_code', 'buy_date', 'status')
+    list_filter = ('status',)
+    search_fields = ('inventory_id','name', 'serial_number', 'asset_code')
     list_per_page = 20
+    actions = ['mark_inactive', 'mark_active']
+
+    def mark_inactive(self, request, queryset):
+        updated = queryset.update(status=0)
+        self.message_user(request, f"{updated} inventory item marked as inactive.")
+    mark_inactive.short_description = "Mark selected inventory item as inactive"
+
+    def mark_active(self, request, queryset):
+        updated = queryset.update(status=1)
+        self.message_user(request, f"{updated} inventory item marked as active.")
+    mark_active.short_description = "Mark selected inventory item as active"
+
+    # Remove default delete_selected action
+    def get_actions(self, request):
+        actions = super().get_actions(request)
+        if 'delete_selected' in actions:
+            del actions['delete_selected']
+        return actions
 
 
 @admin.register(Inventory)
@@ -295,7 +265,34 @@ class InventoryAdmin(admin.ModelAdmin):
         'user__name',
     )
     list_per_page = 20
-    actions = ['generate_combined_pdf']
+    actions = ['generate_combined_pdf','mark_inactive', 'mark_active']
+
+
+    def mark_inactive(self, request, queryset):
+        updated = queryset.update(status=0)
+        self.message_user(request, f"{updated} inventory marked as inactive.")
+    mark_inactive.short_description = "Mark selected inventory as inactive"
+
+    def mark_active(self, request, queryset):
+        updated = queryset.update(status=1)
+        self.message_user(request, f"{updated} inventory marked as active.")
+    mark_active.short_description = "Mark selected inventory as active"
+
+    # Remove default delete_selected action
+    def get_actions(self, request):
+        actions = super().get_actions(request)
+        if 'delete_selected' in actions:
+            del actions['delete_selected']
+        return actions
+    
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == "inventory_item":
+            kwargs["queryset"] = InventoryItem.objects.filter(status=1) 
+        elif db_field.name == "user":
+            kwargs["queryset"] = User.objects.filter(status=1)  
+        elif db_field.name == "department":
+            kwargs["queryset"] = Department.objects.filter(status=1)
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
     def print_pdf_link(self, obj):
         url = reverse('admin:print_inventory_pdf', args=[obj.pk])
@@ -467,20 +464,437 @@ class ReportAdmin(admin.ModelAdmin):
 
 @admin.register(RequestForm)
 class RequestFormAdmin(admin.ModelAdmin):
-    list_display = ('name', 'status')
+    list_display = ('id','name', 'status')
     list_filter = ('status',)
     search_fields = ('name',)
+    list_per_page = 20
+
+    actions = ['mark_inactive', 'mark_active']
+
+    def mark_inactive(self, request, queryset):
+        updated = queryset.update(status=0)
+        self.message_user(request, f"{updated} request form marked as inactive.")
+    mark_inactive.short_description = "Mark selected request form as inactive"
+
+    def mark_active(self, request, queryset):
+        updated = queryset.update(status=1)
+        self.message_user(request, f"{updated} request form marked as active.")
+    mark_active.short_description = "Mark selected request form as active"
+
+    # Remove default delete_selected action
+    def get_actions(self, request):
+        actions = super().get_actions(request)
+        if 'delete_selected' in actions:
+            del actions['delete_selected']
+        return actions
 
 @admin.register(LeaveType)
 class LeaveTypeAdmin(admin.ModelAdmin):
-    list_display = ('name','request_form', 'status')
+    list_display = ('id','name','request_form', 'status')
     list_filter = ('status',)
     search_fields = ('name',)
+    list_per_page = 20
+    actions = ['mark_inactive', 'mark_active']
+
+    def mark_inactive(self, request, queryset):
+        updated = queryset.update(status=0)
+        self.message_user(request, f"{updated} leave type marked as inactive.")
+    mark_inactive.short_description = "Mark selected departments head as inactive"
+
+    def mark_active(self, request, queryset):
+        updated = queryset.update(status=1)
+        self.message_user(request, f"{updated} leave type marked as active.")
+    mark_active.short_description = "Mark selected departments head as active"
+
+    # Remove default delete_selected action
+    def get_actions(self, request):
+        actions = super().get_actions(request)
+        if 'delete_selected' in actions:
+            del actions['delete_selected']
+        return actions
 
 @admin.register(DepartmentHead)
 class DepartmentHeadAdmin(admin.ModelAdmin):
-    list_display = ('department','user', 'status')
+    list_display = ('id','department','auth_user', 'status')
     list_filter = ('status', 'department')
-    search_fields = ('user__name', 'department__name')
+    search_fields = ('auth_user__username', 'department__name')
     list_per_page = 20
+    actions = ['mark_inactive', 'mark_active']
 
+    # Action to mark selected departments inactive
+    def mark_inactive(self, request, queryset):
+        updated = queryset.update(status=0)
+        self.message_user(request, f"{updated} departments head marked as inactive.")
+    mark_inactive.short_description = "Mark selected departments head as inactive"
+
+    # Action to mark selected departments active
+    def mark_active(self, request, queryset):
+        updated = queryset.update(status=1)
+        self.message_user(request, f"{updated} departments head marked as active.")
+    mark_active.short_description = "Mark selected departments head as active"
+
+    # Remove default delete_selected action
+    def get_actions(self, request):
+        actions = super().get_actions(request)
+        if 'delete_selected' in actions:
+            del actions['delete_selected']
+        return actions
+    
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == "department":
+            kwargs["queryset"] = Department.objects.filter(status=1)  # Only active departments
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+    
+@admin.register(Application)
+class ApplicationAdmin(admin.ModelAdmin):
+    form = ApplicationAdminForm
+    
+    all_fields = (
+        'application_id',
+        'user_batch_number',
+        'user_name',
+        'user_department',
+        'user_designation',
+        'user_nationality',
+        'user_qid',
+        'leave_type',
+        'remarks',
+        'colored_status',
+        'from_date',
+        'to_date',
+        'total_days',
+        'remarks_dep_head',
+        'dep_head_status_display',
+        'remarks_hr',
+        'hr_status_display',
+        'remarks_gm',
+        'gm_status_display',
+        'entry_date',
+    )
+
+    limited_fields = (
+        'application_id',
+        'user_batch_number',
+        'user_name',
+        'user_department',
+        'leave_type',
+        'remarks',
+        'from_date',
+        'to_date',
+        'total_days',
+        'colored_status',
+    )
+
+    list_per_page = 20
+    list_filter = (
+        'dep_head_status', 'hr_status', 'gm_status',
+        'leave_type', 'from_date', 'to_date',
+        'user__department', 'user__nationality'
+    )
+    search_fields = (
+        'application_id',
+        'user__name', 'user__batch_number',
+        'leave_type__name',
+        'dep_head_status', 'hr_status', 'gm_status'
+    )
+
+    actions = [
+        'approve_stage', 'reject_stage', 'soft_delete_selected'
+    ]
+
+    exclude = ('delete_status',)
+
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == "request_form":
+            kwargs["queryset"] = RequestForm.objects.filter(status=1)
+        elif db_field.name == "leave_type":
+            kwargs["queryset"] = LeaveType.objects.filter(status=1)
+        elif db_field.name == "user":
+            kwargs["queryset"] = User.objects.filter(status=1)
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        auth_user = request.user
+
+        if auth_user.is_superuser:
+            return qs
+
+        active_status_value = 1
+        dep_ids = DepartmentHead.objects.filter(
+            auth_user=auth_user, status=active_status_value
+        ).values_list('department_id', flat=True)
+
+        if auth_user.groups.filter(name="HR").exists():
+            if dep_ids.exists():
+                return qs.filter(
+                    Q(user__department__in=dep_ids) |
+                    Q(dep_head_status="Approved") |
+                    Q(gm_status__in=["Approved", "Rejected"]),
+                    delete_status=False
+                )
+            return qs.filter(
+                Q(dep_head_status="Approved") |
+                Q(gm_status__in=["Approved", "Rejected"]),
+                delete_status=False
+            )
+
+        if auth_user.groups.filter(name="GM").exists():
+            if dep_ids.exists():
+                return qs.filter(
+                    Q(user__department__in=dep_ids) |
+                    Q(hr_status="Approved"),
+                    delete_status=False
+                )
+            return qs.filter(
+                hr_status="Approved",
+                delete_status=False
+            )
+
+        if dep_ids.exists():
+            return qs.filter(user__department__in=dep_ids, delete_status=False)
+
+        return qs.filter(user=auth_user, delete_status=False)
+
+    def approve_stage(self, request, queryset):
+        stage_field = self._get_stage_field(request)
+
+        for obj in queryset:
+            if request.user.groups.filter(name__in=['HR', 'DepartmentHead']).exists():
+                if obj.gm_status in ['Approved', 'Rejected']:
+                    continue
+                setattr(obj, stage_field, 'Approved')
+
+            elif request.user.groups.filter(name="GM").exists():
+                if obj.hr_status == "Approved" and obj.dep_head_status == "Approved":
+                    obj.gm_status = "Approved"
+                    obj.status = "Approved"   
+                elif obj.dep_head_status == "Pending":
+                    obj.dep_head_status = "Approved"
+                    obj.gm_status = "Approved"
+                    obj.status = "Pending"
+                elif obj.gm_status == "Rejected":
+                    obj.dep_head_status = "Approved"
+                    obj.hr_status = "Pending"
+                    obj.gm_status = "Approved"
+                    obj.status = "Pending"
+
+            obj.save()
+
+        self.message_user(request, f"{queryset.count()} applications approved at your stage.")
+
+    approve_stage.short_description = "Approve selected applicants"
+
+    def reject_stage(self, request, queryset):
+        stage_field = self._get_stage_field(request)
+
+        for obj in queryset:
+            if request.user.groups.filter(name__in=['HR', 'DepartmentHead']).exists():
+                if obj.gm_status in ['Approved', 'Rejected']:
+                    continue
+                setattr(obj, stage_field, 'Rejected')
+
+            elif request.user.groups.filter(name="GM").exists():
+                if obj.dep_head_status == "Pending":
+                    obj.dep_head_status = "Rejected"
+                    obj.gm_status = "Rejected"
+                    obj.hr_status = "Rejected"
+                    obj.status = "Rejected"
+                elif obj.hr_status == "Approved" and obj.dep_head_status == "Approved":
+                    obj.gm_status = "Rejected"
+                    obj.status = "Rejected"
+                elif obj.gm_status == "Approved":
+                    obj.dep_head_status = "Rejected"
+                    obj.gm_status = "Rejected"
+                    obj.hr_status = "Rejected"
+                    obj.status = "Rejected"
+
+            obj.save()
+
+        self.message_user(request, f"{queryset.count()} applications rejected at your stage.")
+
+    reject_stage.short_description = "Reject selected applicants"
+
+    def save_model(self, request, obj, form, change):
+        if request.user.groups.filter(name="GM").exists():
+            if obj.gm_status == "Approved":
+                if obj.dep_head_status == "Pending":
+                    obj.dep_head_status = "Approved"
+                elif obj.dep_head_status == "Approved" and obj.hr_status == "Approved":
+                    obj.status = "Approved"
+                elif obj.dep_head_status == "Rejected" and obj.hr_status == "Rejected":
+                    obj.dep_head_status = "Approved"
+                    obj.hr_status = "Pending"
+                    obj.status = "Approved"
+
+            elif obj.gm_status == "Rejected":
+                if obj.dep_head_status == "Pending":
+                    obj.dep_head_status = "Rejected"
+                    obj.hr_status = "Rejected"
+                    obj.status = "Rejected"
+                elif obj.dep_head_status == "Approved" and obj.hr_status == "Approved":
+                    obj.status = "Rejected"
+                
+
+            elif obj.gm_status == "Pending":
+                if obj.dep_head_status == "Approved" and obj.hr_status == "Approved":
+                    obj.status = "Pending"
+                elif obj.dep_head_status == "Approved" and obj.hr_status == "Pending":
+                    obj.dep_head_status = "Pending"
+                    obj.status = "Pending"
+                elif obj.dep_head_status == "Rejected" and obj.hr_status == "Pending":
+                    obj.dep_head_status = "Pending"
+                    obj.status = "Pending"
+                elif obj.dep_head_status == "Rejected" and obj.hr_status == "Rejected":
+                    obj.dep_head_status = "Pending"
+                    obj.hr_status = "Pending"
+                    obj.status = "Pending"
+
+        super().save_model(request, obj, form, change)
+
+    def _get_stage_field(self, request):
+        if request.user.is_superuser:
+            return 'gm_status'
+        if request.user.groups.filter(name='DepartmentHead').exists():
+            return 'dep_head_status'
+        if request.user.groups.filter(name='HR').exists():
+            return 'hr_status'
+        if request.user.groups.filter(name='GM').exists():
+            return 'gm_status'
+        return 'dep_head_status'
+
+    def soft_delete_selected(self, request, queryset):
+        updated = queryset.update(delete_status=True)
+        self.message_user(request, f"{updated} applications marked as deleted.")
+    soft_delete_selected.short_description = "Delete selected applicants"
+
+    def get_actions(self, request):
+        actions = super().get_actions(request)
+        if 'delete_selected' in actions:
+            del actions['delete_selected']
+        if not request.user.is_superuser and 'soft_delete_selected' in actions:
+            del actions['soft_delete_selected']
+        return actions
+
+    def get_list_display(self, request):
+        return self.all_fields if request.user.is_superuser else self.limited_fields
+
+    def colored_status(self, obj):
+        # ✅ Rejection priority: GM > HR > Dep Head
+        if obj.gm_status == "Rejected":
+            label, status_key = "Rejected by GM", "Rejected"
+        elif obj.hr_status == "Rejected":
+            label, status_key = "Rejected by HR", "Rejected"
+        elif obj.dep_head_status == "Rejected":
+            label, status_key = "Rejected by Dep Head", "Rejected"
+
+        # ✅ Pending priority: Dep Head → HR → GM
+        elif obj.dep_head_status == "Pending":
+            label, status_key = "Waiting for Dep Head approval", "Pending"
+        elif obj.hr_status == "Pending":
+            label, status_key = "Waiting for HR approval", "Pending"
+        elif obj.gm_status == "Pending":
+            label, status_key = "Waiting for GM approval", "Pending"
+
+        # ✅ Final approval (all must be approved)
+        else:
+            label, status_key = "Approved by GM", "Approved"
+
+        color_map = {
+            "Approved": "#5cb85c",  # green
+            "Rejected": "#d9534f",  # red
+            "Pending": "#4ef0d2",   # teal
+        }
+        bg_color = color_map.get(status_key, "#ddd")
+
+        return format_html(
+            '<span style="background-color:{}; color:black; padding:2px 4px; '
+            'border-radius:4px; font-weight:bold; white-space:nowrap;">{}</span>',
+            bg_color, label
+        )
+
+    colored_status.short_description = 'Status'
+
+
+    def _colored_stage_status(self, status):
+        color_map = {
+            'Pending': "#f7fb09d9",
+            'Approved': '#5cb85c',
+            'Rejected': '#d9534f',
+        }
+        color = color_map.get(status, 'gray')
+        return format_html(
+            '<span style="background-color: {}; color: Black; padding: 2px 4px; '
+            'border-radius: 4px; font-weight: bold;">{}</span>',
+            color,
+            status or 'Pending'
+        )
+
+    def dep_head_status_display(self, obj):
+        return self._colored_stage_status(obj.dep_head_status)
+    dep_head_status_display.short_description = "Department Head Status"
+    dep_head_status_display.admin_order_field = "dep_head_status"
+
+    def hr_status_display(self, obj):
+        return self._colored_stage_status(obj.hr_status)
+    hr_status_display.short_description = "HR Status"
+    hr_status_display.admin_order_field = "hr_status"
+
+    def gm_status_display(self, obj):
+        return self._colored_stage_status(obj.gm_status)
+    gm_status_display.short_description = "GM Status"
+    gm_status_display.admin_order_field = "gm_status"
+
+    def get_readonly_fields(self, request, obj=None):
+
+        if request.user.is_superuser:
+            return []
+        
+        if not obj:
+            return super().get_readonly_fields(request, obj)
+
+        if obj.gm_status in ['Approved', 'Rejected']:
+            all_fields = [f.name for f in self.model._meta.fields]
+            if request.user.groups.filter(name="GM").exists():
+                editable_fields = ['gm_status', 'remarks_gm']
+                return [f for f in all_fields if f not in editable_fields]
+            else:
+                return all_fields
+
+        if request.user.groups.filter(name='DepartmentHead').exists():
+            return [f.name for f in self.model._meta.fields
+                    if f.name not in ('remarks_dep_head', 'dep_head_status')]
+
+        if request.user.groups.filter(name='HR').exists():
+            return [f.name for f in self.model._meta.fields
+                    if f.name not in ('remarks_hr', 'hr_status')]
+
+        if request.user.groups.filter(name='GM').exists():
+            return [f.name for f in self.model._meta.fields
+                    if f.name not in ('remarks_gm', 'gm_status')]
+
+        readonly = list(super().get_readonly_fields(request, obj))
+        readonly.extend(['dep_head_status', 'remarks_dep_head'])
+        return readonly
+
+    def user_name(self, obj): return obj.user.name
+    def user_batch_number(self, obj): return obj.user.batch_number
+    def user_department(self, obj): return obj.user.department.name if obj.user.department else '—'
+    def user_nationality(self, obj): return obj.user.nationality.name if obj.user.nationality else '—'
+    def user_designation(self, obj): return obj.user.designation.name if obj.user.designation else '—'
+    def user_qid(self, obj): return obj.user.qid or '—'
+
+    user_name.short_description = 'Name'
+    user_batch_number.short_description = 'Batch #'
+    user_department.short_description = 'Department'
+    user_nationality.short_description = 'Nationality'
+    user_designation.short_description = 'Designation'
+    user_qid.short_description = 'QID'
+
+    class Media:
+        js = (
+            'admin/js/core.js',
+            'admin/js/vendor/jquery/jquery.js',
+            'admin/js/jquery.init.js',
+            'js/calculate_days.js',
+        )

@@ -1,3 +1,6 @@
 #result_list td {
     font-weight: bold;
 }
+#result_list tbody tr:hover {
+    background-color: rgba(0, 123, 255, 0.08); /* light blue highlight */
+}

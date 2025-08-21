@@ -2,6 +2,8 @@ from django.db import models
 from django.contrib.auth.hashers import make_password
 from datetime import date
 from django.utils.html import format_html
+import uuid
+from django.contrib.auth.models import User as AuthUser
 
 STATUS_CHOICES = [
     ('Pending', 'Pending'),
@@ -60,16 +62,16 @@ class Nationality(models.Model):
 
 class User(models.Model):
     name = models.CharField(max_length=100)
-    batch_number = models.CharField(max_length=20)
+    batch_number = models.CharField(max_length=20, unique=True)
     department = models.ForeignKey(Department, on_delete=models.SET_NULL, null=True)
     designation = models.ForeignKey(Designation, on_delete=models.SET_NULL, null=True, blank=True)
     nationality = models.ForeignKey(Nationality, on_delete=models.SET_NULL, null=True, blank=True)
     mobile_number = models.CharField(max_length=20, blank=True)
-    qid = models.CharField(max_length=50)  
+    qid = models.CharField(max_length=50, unique=True)  
     qid_expiry_date = models.DateField(default=today)  
     date_of_joining = models.DateField(default=today)
     address = models.TextField(blank=True)
-    passport_number = models.CharField(max_length=50, blank=True)
+    passport_number = models.CharField(max_length=50, unique=True)
     passport_expiry_date = models.DateField(null=True, blank=True)
     marital_status = models.CharField(
         max_length=10,
@@ -105,9 +107,22 @@ class InventoryItem(models.Model):
     asset_code = models.CharField(max_length=50, unique=True, blank=True, null=True)
     buy_date = models.DateField(null=True, blank=True)
     status = models.IntegerField(choices=ACTIVE_STATUS, default=1)
+    inventory_id = models.CharField(max_length=20, unique=True, blank=False, null=True, editable=False)
+
+    def save(self, *args, **kwargs):
+        if not self.inventory_id:
+            # Sequential ID: INV-0001, INV-0002
+            last_item = InventoryItem.objects.order_by('-id').first()
+            if last_item and last_item.inventory_id:
+                last_number = int(last_item.inventory_id.split('-')[-1])
+            else:
+                last_number = 0
+            self.inventory_id = f"INVE-{last_number + 1:04d}"
+
+        super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.name}"
+        return f"{self.inventory_id}  - {self.name}"
     
 class Inventory(models.Model):
     inventory_item = models.ForeignKey(InventoryItem, on_delete=models.SET_NULL, null=True)
@@ -149,11 +164,11 @@ class LeaveType(models.Model):
     
 class DepartmentHead(models.Model):
     department = models.ForeignKey('Department', on_delete=models.CASCADE)
-    user = models.ForeignKey('User', on_delete=models.CASCADE)
+    auth_user = models.ForeignKey(AuthUser, on_delete=models.CASCADE,null=False)  # new field
     status = models.IntegerField(choices=ACTIVE_STATUS, default=1)
 
     def __str__(self):
-        return f"{self.user.name} - {self.department.name}"
+        return f"{self.auth_user.username} - {self.department.name}"
 
 class ApplicationManager(models.Manager):
     def get_queryset(self):
@@ -168,7 +183,7 @@ class Application(models.Model):
         ('Approved', 'Approved'),
         ('Rejected', 'Rejected'),
     ]
-
+    application_id = models.CharField(max_length=20, unique=True, blank=False,null=True,editable=False)
     request_form = models.ForeignKey('RequestForm', on_delete=models.CASCADE)
     leave_type = models.ForeignKey('LeaveType', on_delete=models.CASCADE)
     user = models.ForeignKey('User', on_delete=models.CASCADE)
@@ -194,50 +209,27 @@ class Application(models.Model):
     objects = ApplicationManager()
     all_objects = models.Manager()  # To access all including deleted
 
-    def __str__(self):
-        return f"{self.user.name} - {self.leave_type.name}"
-
-    def final_status(self):
-        color_map = {
-            "Approved": "#5cb85c",  # green
-            "Rejected": "#d9534f",  # red
-            "Pending": "#4ef0d2",
-        }
-
-        # Approval flow logic
-        if self.gm_status == "Approved":
-            label = "Approved"
-            status_key = "Approved"
-        elif self.gm_status == "Rejected":
-            label = "Rejected by GM"
-            status_key = "Rejected"
-        elif self.hr_status == "Rejected":
-            label = "Rejected by HR"
-            status_key = "Rejected"
-        elif self.dep_head_status == "Rejected":
-            label = "Rejected by Dep Head"
-            status_key = "Rejected"
-        elif self.dep_head_status == "Pending":
-            label = "Waiting for Dep Head approval"
-            status_key = "Pending"
-        elif self.hr_status == "Pending":
-            label = "Waiting for HR approval"
-            status_key = "Pending"
-        elif self.gm_status == "Pending":
-            label = "Waiting for GM approval"
-            status_key = "Pending"
+    def save(self, *args, **kwargs):
+        if not self.application_id:
+            # Generate a random 8-character unique ID
+            self.application_id = f"APP-{uuid.uuid4().hex[:8].upper()}"
+        # 🔑 Final approval logic
+        if (
+            self.dep_head_status == "Approved"
+            and self.hr_status == "Approved"
+            and self.gm_status == "Approved"
+        ):
+            self.status = "Approved"
+        elif (
+            self.dep_head_status == "Rejected"
+            or self.hr_status == "Rejected"
+            or self.gm_status == "Rejected"
+        ):
+            self.status = "Rejected"
         else:
-            label = "Pending"
-            status_key = "Pending"
+            self.status = "Pending"
+        super().save(*args, **kwargs)
 
-        text_color = color_map.get(status_key, "")
+    def __str__(self):
+        return f"{self.application_id} - {self.user.name} - {self.leave_type.name}"
 
-        return format_html(
-            '<span style="background-color:{};color:black;padding:2px 4px;'
-            'border-radius:4px;font-weight:bold;white-space:nowrap;">{}</span>',
-            text_color,
-            label
-        )
-
-        final_status.short_description = "Final Status"
-        final_status.admin_order_field = "gm_status"

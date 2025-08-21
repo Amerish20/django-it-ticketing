@@ -40,12 +40,12 @@ html[data-theme="light"],
 
     --darkened-bg: #f8f8f8; /* A bit darker than --body-bg */
     --selected-bg: #e4e4e4; /* E.g. selected table cells */
-    --selected-row: #b7b705;
+    --selected-row: #e6ed74;
 
     --button-fg: #fff;
     --button-bg: var(--secondary);
-    --button-hover-bg:#eb0a48;
-    --default-button-bg: #530dc3;
+    --button-hover-bg:#70263b;
+    --default-button-bg: #e95252;
     --default-button-hover-bg: var(--secondary);
     --close-button-bg: #0a0000;
     --close-button-hover-bg: #333;
@@ -471,6 +471,9 @@ table thead th.sorted .sortoptions a.descending:hover {
     background-position: 0 -70px;
 }
 
+#result_list tbody tr:hover {
+    background-color: color-mix(in srgb, var(--primary) 10%, white);
+}
 /* FORM DEFAULTS */
 
 input, textarea, select, .form-row p, form .button {
