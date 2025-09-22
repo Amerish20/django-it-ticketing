@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from .models import User, Ticket, Item, Department,LeaveType,RequestForm,Application
 from django.contrib import messages
 from django.db.models import Q
-from django.contrib.auth.hashers import check_password
+from django.contrib.auth.hashers import check_password,make_password
 from django.contrib.admin.views.decorators import staff_member_required
 from django.utils import timezone
 from django.http import JsonResponse, HttpResponse
@@ -42,7 +42,7 @@ def create_ticket(request):
         messages.success(request, 'Ticket submitted successfully!')
         return redirect('create_ticket')
 
-    return render(request, 'base.html', {'user': user, 'items': items,'tickets': user_tickets})
+    return render(request, 'create_ticket.html', {'user': user, 'items': items,'tickets': user_tickets})
 
 def logout_view(request):
     request.session.flush()
@@ -180,3 +180,30 @@ def delete_application(request, application_id):
 def custom_logout(request):
     logout(request)
     return render(request, "admin/logged_out.html")
+
+def change_password(request):
+    user_id = request.session.get('frontend_user_id')
+    user = User.objects.get(id=user_id, status=1)
+    if not user_id:
+        return redirect('login')
+    
+    if request.method == "POST":
+        current_password = request.POST.get('current_password', '').strip()
+        new_password = request.POST.get('new_password', '').strip()
+        confirm_password = request.POST.get('confirm_password', '').strip()
+
+        # Match new/confirm password
+        if new_password != confirm_password:
+            return JsonResponse({'status': 'error', 'message': 'New password and confirm password do not match.'})
+
+        # Check current password
+        if user.password.strip() != current_password:
+            return JsonResponse({'status': 'error', 'message': 'Current password is incorrect.'})
+
+        # Update password (no hashing as per your request)
+        user.password = new_password
+        user.save()
+
+        return JsonResponse({'status': 'success', 'message': 'Password updated successfully.'})
+
+    return render(request, 'change_password.html',{'user': user})

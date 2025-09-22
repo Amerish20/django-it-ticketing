@@ -7,8 +7,8 @@
 
     {% load static %}
     <!-- AdminLTE & Bootstrap CSS -->
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/css/adminlte.min.css">
+    <script src="{% static 'js/jquery-3.6.0.min.js' %}"></script>
+    <link rel="stylesheet" href="{% static 'css/adminlte.min.css' %}">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free/css/all.min.css">
 
     <link rel="icon" href="{% static 'images/favicon.ico' %}" type="image/x-icon">
@@ -70,25 +70,24 @@
                             <p>Dashboard</p>
                         </a>
                     </li>
-                    <li class="nav-item">
+                    {% comment %} <li class="nav-item">
                         <a href="{% url 'create_ticket' %}" class="nav-link">
                             <i class="nav-icon fas fa-ticket-alt"></i>
                             <p>Create Ticket</p>
                         </a>
-                    </li>
+                    </li> {% endcomment %}
                      <li class="nav-item">
                         <a href="{% url 'my_applications' %}" class="nav-link">
                             <i class="nav-icon fas fa-calendar-check"></i>
                             <p>My Applications</p>
                         </a>
                     </li>
-                    {% comment %}
                     <li class="nav-item">
                         <a href="{% url 'change_password' %}" class="nav-link">
                             <i class="nav-icon fas fa-key"></i>
                             <p>Change Password</p>
                         </a>
-                    </li> {% endcomment %}
+                    </li>
                 </ul>
             </nav>
         </div>
@@ -108,10 +107,10 @@
 </div>
 
 <!-- AdminLTE Scripts -->
-<script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/js/adminlte.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="{% static 'js/jquery.min.js' %}"></script>
+<script src="{% static 'js/bootstrap.bundle.min.js' %}"></script>
+<script src="{% static 'js/adminlte.min.js' %}"></script>
+<script src="{% static 'js/sweetalert2@11.js' %}"></script>
 <script src="{% static 'js/dashboard.js' %}"></script>
 <script src="{% static 'js/calculate_days.js' %}"></script>
 

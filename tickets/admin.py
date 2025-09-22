@@ -15,6 +15,8 @@ from django.contrib.admin.sites import site as admin_site
 from .forms import ApplicationAdminForm
 from django.db.models import Q
 from django.contrib.admin.views.main import ChangeList
+from .utils import is_same_department
+from django.contrib import messages
 from .models import (
     User, Ticket, Department, Designation, Item, Inventory,
     InventoryItem, InventoryReport, RequestForm, LeaveType,
@@ -136,6 +138,8 @@ class UserAdmin(admin.ModelAdmin):
         'id',
         'name',
         'batch_number',
+        'password',
+        'status',
         'department',
         'designation',
         'mobile_number',
@@ -145,8 +149,7 @@ class UserAdmin(admin.ModelAdmin):
         'passport_number',
         'passport_expiry_date',
         'marital_status',
-        'status',
-        'password',
+        
     )
     list_filter = (
         'department', 'status','nationality','designation'
@@ -309,7 +312,7 @@ class InventoryAdmin(admin.ModelAdmin):
 
     def print_inventory_pdf(self, request, pk):
         inventory = Inventory.objects.get(pk=pk)
-        logo_url = request.build_absolute_uri(static('images/favicon.ico'))
+        logo_url = request.build_absolute_uri(static('images/awc-logo.jpg'))
 
         html = render_to_string('admin/inventory_print.html', {
             'inventories': [inventory],
@@ -544,7 +547,45 @@ class DepartmentHeadAdmin(admin.ModelAdmin):
         if db_field.name == "department":
             kwargs["queryset"] = Department.objects.filter(status=1)  # Only active departments
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
+
+
+class SimpleDropdownFilter(admin.SimpleListFilter):
+    def lookups(self, request, model_admin):
+        return [
+            ("Pending", "Pending"),
+            ("Approved", "Approved"),
+            ("Rejected", "Rejected"),
+        ]
     
+    def choices(self, changelist):
+        # Skip the "All" option
+        for lookup, title in self.lookup_choices:
+            yield {
+                'selected': self.value() == str(lookup),
+                'query_string': changelist.get_query_string({self.parameter_name: lookup}),
+                'display': title,
+            }
+
+    def queryset(self, request, queryset):
+        if self.value():
+            return queryset.filter(**{self.parameter_name: self.value()})
+        return queryset
+
+
+class DepHeadStatusFilter(SimpleDropdownFilter):
+    title = "Dep Head Status"
+    parameter_name = "dep_head_status"
+
+
+class HRStatusFilter(SimpleDropdownFilter):
+    title = "HR Status"
+    parameter_name = "hr_status"
+
+
+class GMStatusFilter(SimpleDropdownFilter):
+    title = "GM Status"
+    parameter_name = "gm_status"
+
 @admin.register(Application)
 class ApplicationAdmin(admin.ModelAdmin):
     form = ApplicationAdminForm
@@ -586,10 +627,10 @@ class ApplicationAdmin(admin.ModelAdmin):
     )
 
     list_per_page = 20
-    list_filter = (
-        'dep_head_status', 'hr_status', 'gm_status',
-        'leave_type', 'from_date', 'to_date',
-        'user__department', 'user__nationality'
+    base_filters  = (
+        'leave_type',
+        'from_date',
+        'to_date',
     )
     search_fields = (
         'application_id',
@@ -604,6 +645,21 @@ class ApplicationAdmin(admin.ModelAdmin):
 
     exclude = ('delete_status',)
 
+    def get_list_filter(self, request):
+        user = request.user
+
+        if user.groups.filter(name="GM").exists():
+            return (GMStatusFilter,) + self.base_filters
+
+        elif user.groups.filter(name="HR").exists():
+            return (HRStatusFilter,) + self.base_filters
+
+        elif user.groups.filter(name="DepartmentHead").exists():
+            return (DepHeadStatusFilter,) + self.base_filters
+
+        # default for superuser or others
+        return ('dep_head_status', 'hr_status', GMStatusFilter) + self.base_filters
+    
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
         if db_field.name == "request_form":
             kwargs["queryset"] = RequestForm.objects.filter(status=1)
@@ -627,11 +683,14 @@ class ApplicationAdmin(admin.ModelAdmin):
 
         if auth_user.groups.filter(name="HR").exists():
             if dep_ids.exists():
-                return qs.filter(
+                return (
+                    qs.filter(
                     Q(user__department__in=dep_ids) |
                     Q(dep_head_status="Approved") |
                     Q(gm_status__in=["Approved", "Rejected"]),
                     delete_status=False
+                    )
+                    .exclude(dep_head_status="Rejected", gm_status="Rejected")
                 )
             return qs.filter(
                 Q(dep_head_status="Approved") |
@@ -656,32 +715,92 @@ class ApplicationAdmin(admin.ModelAdmin):
 
         return qs.filter(user=auth_user, delete_status=False)
 
+
+    def changelist_view(self, request, extra_context=None):
+        """Apply default Pending filter based on role if no filter applied"""
+        if not request.GET:  # first load, no filter yet
+            user = request.user
+            if user.groups.filter(name="HR").exists():
+                return redirect(f"{request.path}?{urlencode({'hr_status': 'Pending'})}")
+            elif user.groups.filter(name="GM").exists():
+                return redirect(f"{request.path}?{urlencode({'gm_status': 'Pending'})}")
+            elif DepartmentHead.objects.filter(auth_user=user, status=1).exists():
+                return redirect(f"{request.path}?{urlencode({'dep_head_status': 'Pending'})}")
+
+        return super().changelist_view(request, extra_context)
+        
     def approve_stage(self, request, queryset):
         stage_field = self._get_stage_field(request)
 
         for obj in queryset:
-            if request.user.groups.filter(name__in=['HR', 'DepartmentHead']).exists():
+            same_dep = is_same_department(request.user, obj.user.department_id)
+
+            if request.user.groups.filter(name__in=['DepartmentHead']).exists():
                 if obj.gm_status in ['Approved', 'Rejected']:
+                    self.message_user(
+                            request,
+                            f"Application {obj.application_id} already reviewed by RM. You can’t change the status.",
+                            level=messages.WARNING
+                        )
                     continue
+                else:
+                    self.message_user(request, f"Application {obj.application_id} approved at your stage.")
                 setattr(obj, stage_field, 'Approved')
 
             elif request.user.groups.filter(name="GM").exists():
-                if obj.hr_status == "Approved" and obj.dep_head_status == "Approved":
-                    obj.gm_status = "Approved"
-                    obj.status = "Approved"   
-                elif obj.dep_head_status == "Pending":
-                    obj.dep_head_status = "Approved"
-                    obj.gm_status = "Approved"
-                    obj.status = "Pending"
+                if same_dep == 1:
+                    if obj.dep_head_status == "Pending" and obj.hr_status == "Pending":
+                        obj.gm_status = "Approved"
+                        obj.dep_head_status = "Approved"
+                        obj.status = "Pending"   
+                    elif obj.dep_head_status == "Rejected" and obj.hr_status == "Pending":
+                        obj.dep_head_status = "Approved"
+                        obj.gm_status = "Approved"
+                        obj.status = "Pending"
+                else:
+                    if obj.dep_head_status == "Approved" and obj.hr_status == "Approved":
+                        obj.gm_status = "Approved"
+                        obj.status = "Approved"   
+                    elif obj.gm_status == "Rejected":
+                        obj.gm_status = "Approved"
+                        obj.status = "Approved"
+                self.message_user(request, f"Application {obj.application_id} approved at your stage.")
+            elif request.user.groups.filter(name="HR").exists():
+                if obj.gm_status == "Approved":
+                    self.message_user(
+                            request,
+                            f"Application {obj.application_id} already reviewed by RM. You can’t change the status.",
+                            level=messages.WARNING
+                        )
+                    continue
                 elif obj.gm_status == "Rejected":
-                    obj.dep_head_status = "Approved"
-                    obj.hr_status = "Pending"
-                    obj.gm_status = "Approved"
-                    obj.status = "Pending"
-
+                    self.message_user(
+                            request,
+                            f"Application {obj.application_id} already reviewed by RM. You can’t change the status.",
+                            level=messages.WARNING
+                        )
+                    continue
+                if same_dep == 1:  
+                    if  obj.dep_head_status == "Pending" and obj.gm_status == "Pending":
+                        obj.hr_status = "Approved"
+                        obj.dep_head_status = "Approved"
+                        obj.status = "Pending"
+                    elif obj.dep_head_status == "Rejected" and obj.gm_status == "Pending":
+                        obj.hr_status = "Approved"
+                        obj.dep_head_status = "Approved"
+                        obj.status = "Pending"
+                else:   
+                    if obj.dep_head_status == "Approved" and  obj.gm_status == "Pending":
+                        obj.hr_status = "Approved"
+                        obj.status = "Pending"
+                    elif obj.dep_head_status == "Approved" and  obj.gm_status == "Approved":
+                        obj.hr_status = "Approved"
+                        obj.status = "Approved"
+                    elif obj.dep_head_status == "Rejected" and  obj.gm_status == "Pending":
+                        obj.hr_status = "Approved"
+                        obj.status = "Pending"
+                self.message_user(request, f"Application {obj.application_id} approved at your stage.")
             obj.save()
-
-        self.message_user(request, f"{queryset.count()} applications approved at your stage.")
 
     approve_stage.short_description = "Approve selected applicants"
 
@@ -689,67 +808,165 @@ class ApplicationAdmin(admin.ModelAdmin):
         stage_field = self._get_stage_field(request)
 
         for obj in queryset:
-            if request.user.groups.filter(name__in=['HR', 'DepartmentHead']).exists():
+
+            same_dep = is_same_department(request.user, obj.user.department_id)
+
+            if request.user.groups.filter(name__in=['DepartmentHead']).exists():
                 if obj.gm_status in ['Approved', 'Rejected']:
+                    self.message_user(
+                            request,
+                            f"Application {obj.application_id} already reviewed by RM. You can’t change the status.",
+                            level=messages.WARNING
+                        )
                     continue
+                else:
+                    self.message_user(request, f"Application {obj.application_id} rejected at your stage.")
                 setattr(obj, stage_field, 'Rejected')
 
             elif request.user.groups.filter(name="GM").exists():
-                if obj.dep_head_status == "Pending":
-                    obj.dep_head_status = "Rejected"
-                    obj.gm_status = "Rejected"
-                    obj.hr_status = "Rejected"
-                    obj.status = "Rejected"
-                elif obj.hr_status == "Approved" and obj.dep_head_status == "Approved":
-                    obj.gm_status = "Rejected"
-                    obj.status = "Rejected"
-                elif obj.gm_status == "Approved":
-                    obj.dep_head_status = "Rejected"
-                    obj.gm_status = "Rejected"
-                    obj.hr_status = "Rejected"
-                    obj.status = "Rejected"
-
+                if same_dep == 1:
+                    if obj.dep_head_status == "Approved" and obj.hr_status == "Pending":
+                        obj.dep_head_status = "Rejected"
+                        obj.gm_status = "Rejected"
+                        obj.status = "Rejected"
+                    elif obj.dep_head_status == "Pending" and obj.hr_status == "Pending":
+                        obj.dep_head_status = "Rejected"
+                        obj.gm_status = "Rejected"
+                        obj.status = "Rejected"
+                    elif obj.dep_head_status == "Approved" and obj.hr_status == "Approved" and obj.status == "Approved":
+                        obj.dep_head_status = "Rejected"
+                        obj.gm_status = "Rejected"
+                        obj.status = "Rejected"
+                        obj.hr_status = "Pending"
+                else:
+                    if obj.dep_head_status == "Approved" and obj.hr_status == "Approved":
+                        obj.gm_status = "Rejected"
+                        obj.status = "Rejected"
+                self.message_user(request, f"Application {obj.application_id} rejected at your stage.")    
+            elif request.user.groups.filter(name="HR").exists():
+                # 🚫 HR cannot reject if GM already approved
+                if obj.gm_status == "Approved":
+                    self.message_user(
+                            request,
+                            f"Application {obj.application_id} already reviewed by RM. You can’t change the status.",
+                            level=messages.WARNING
+                        )
+                    continue
+                elif obj.gm_status == "Rejected":
+                    self.message_user(
+                            request,
+                            f"Application {obj.application_id} already reviewed by RM. You can’t change the status.",
+                            level=messages.WARNING
+                        )
+                    continue
+                if same_dep == 1:  
+                    if  obj.dep_head_status == "Pending" and obj.gm_status == "Pending":
+                        obj.hr_status = "Rejected"
+                        obj.dep_head_status = "Rejected"
+                        obj.status = "Rejected"
+                    elif obj.dep_head_status == "Approved" and obj.gm_status == "Pending":
+                        obj.hr_status = "Rejected"
+                        obj.dep_head_status = "Rejected"
+                        obj.status = "Rejected"
+                else:   
+                    if obj.dep_head_status == "Approved" and  obj.gm_status == "Pending":
+                        obj.hr_status = "Rejected"
+                        obj.status = "Rejected"
+                    elif obj.dep_head_status == "Approved" and  obj.gm_status == "Approved":
+                        obj.hr_status = "Rejected"
+                        obj.status = "Rejected"
+                self.message_user(request, f"Application {obj.application_id} rejected at your stage.")
             obj.save()
-
-        self.message_user(request, f"{queryset.count()} applications rejected at your stage.")
 
     reject_stage.short_description = "Reject selected applicants"
 
     def save_model(self, request, obj, form, change):
+
+        same_dep = is_same_department(request.user, obj.user.department_id)
+
         if request.user.groups.filter(name="GM").exists():
             if obj.gm_status == "Approved":
                 if obj.dep_head_status == "Pending":
                     obj.dep_head_status = "Approved"
                 elif obj.dep_head_status == "Approved" and obj.hr_status == "Approved":
                     obj.status = "Approved"
-                elif obj.dep_head_status == "Rejected" and obj.hr_status == "Rejected":
-                    obj.dep_head_status = "Approved"
-                    obj.hr_status = "Pending"
-                    obj.status = "Approved"
-
-            elif obj.gm_status == "Rejected":
-                if obj.dep_head_status == "Pending":
-                    obj.dep_head_status = "Rejected"
-                    obj.hr_status = "Rejected"
-                    obj.status = "Rejected"
-                elif obj.dep_head_status == "Approved" and obj.hr_status == "Approved":
-                    obj.status = "Rejected"
-                
-
-            elif obj.gm_status == "Pending":
-                if obj.dep_head_status == "Approved" and obj.hr_status == "Approved":
-                    obj.status = "Pending"
-                elif obj.dep_head_status == "Approved" and obj.hr_status == "Pending":
-                    obj.dep_head_status = "Pending"
-                    obj.status = "Pending"
                 elif obj.dep_head_status == "Rejected" and obj.hr_status == "Pending":
-                    obj.dep_head_status = "Pending"
+                    obj.dep_head_status = "Approved"
                     obj.status = "Pending"
-                elif obj.dep_head_status == "Rejected" and obj.hr_status == "Rejected":
-                    obj.dep_head_status = "Pending"
-                    obj.hr_status = "Pending"
+            elif obj.gm_status == "Rejected":
+                if same_dep == 1:
+                    if obj.dep_head_status == "Pending":
+                        obj.dep_head_status = "Rejected"
+                        obj.status = "Rejected"
+                        obj.hr_status = "Pending"
+                    elif obj.dep_head_status == "Approved":
+                        obj.dep_head_status = "Rejected"
+                        obj.status = "Rejected"
+                        obj.hr_status = "Pending"
+                    elif obj.dep_head_status == "Approved" and obj.hr_status == "Approved" and obj.status == "Approved":
+                        obj.dep_head_status = "Rejected"
+                        obj.status = "Rejected"
+                        obj.hr_status = "Pending" 
+                else:
+                    if obj.dep_head_status == "Approved" and obj.hr_status == "Approved":
+                        obj.status = "Rejected"
+            elif obj.gm_status == "Pending":
+                if same_dep == 1:
+                    if obj.dep_head_status == "Approved" and obj.hr_status == "Pending":
+                        obj.dep_head_status = "Pending"
+                        obj.status = "Pending"
+                    elif obj.dep_head_status == "Pending" and obj.hr_status == "Pending":
+                        obj.dep_head_status = "Pending"
+                        obj.status = "Pending"
+                    elif obj.dep_head_status == "Rejected" and obj.hr_status == "Pending":
+                        obj.dep_head_status = "Pending"
+                        obj.status = "Pending"
+                    elif obj.dep_head_status == "Rejected" and obj.hr_status == "Approved":
+                        obj.dep_head_status = "Pending"
+                        obj.status = "Pending"
+                        obj.hr_status = "Pending"
+                    elif obj.dep_head_status == "Approved" and obj.hr_status == "Approved" and obj.status == "Approved":
+                        obj.dep_head_status = "Pending"
+                        obj.status = "Pending"
+                        obj.hr_status = "Pending"
+                else:
+                    if obj.dep_head_status == "Approved" and obj.hr_status == "Approved":
+                        obj.status = "Pending"
+        elif request.user.groups.filter(name="HR").exists():
+            if obj.hr_status == "Approved":
+                if obj.dep_head_status == "Pending":
+                    obj.dep_head_status = "Approved"
+                elif obj.dep_head_status == "Approved" and obj.gm_status == "Approved":
+                    obj.status = "Approved"
+                elif obj.dep_head_status == "Approved" and obj.gm_status == "Pending":
                     obj.status = "Pending"
-
+                elif obj.dep_head_status == "Rejected" and obj.gm_status == "Pending":
+                    obj.dep_head_status = "Approved"
+                    obj.status = "Pending"
+            elif obj.hr_status == "Rejected":
+                if same_dep == 1:
+                    if obj.dep_head_status == "Pending":
+                        obj.dep_head_status = "Rejected"
+                        obj.status = "Rejected"
+                    elif obj.dep_head_status == "Approved" and obj.gm_status == "Pending":
+                        obj.dep_head_status = "Rejected"
+                        obj.status = "Rejected"
+                else:
+                    if obj.dep_head_status == "Approved":
+                        obj.status = "Rejected"
+                    elif obj.dep_head_status == "Approved" and obj.gm_status == "Pending":
+                        obj.status = "Rejected"
+            elif obj.hr_status == "Pending":
+                if same_dep == 1:
+                    if obj.dep_head_status == "Approved" and obj.gm_status == "Pending":
+                        obj.status = "Pending"
+                        obj.dep_head_status = "Pending"             
+                    elif obj.dep_head_status == "Rejected" and obj.gm_status == "Pending":
+                        obj.dep_head_status = "Pending"
+                        obj.status = "Pending"
+                else:
+                    if obj.dep_head_status == "Approved" and obj.gm_status == "Pending":
+                        obj.status = "Pending"
         super().save_model(request, obj, form, change)
 
     def _get_stage_field(self, request):
@@ -782,7 +999,7 @@ class ApplicationAdmin(admin.ModelAdmin):
     def colored_status(self, obj):
         # ✅ Rejection priority: GM > HR > Dep Head
         if obj.gm_status == "Rejected":
-            label, status_key = "Rejected by GM", "Rejected"
+            label, status_key = "Rejected by RM", "Rejected"
         elif obj.hr_status == "Rejected":
             label, status_key = "Rejected by HR", "Rejected"
         elif obj.dep_head_status == "Rejected":
@@ -794,11 +1011,11 @@ class ApplicationAdmin(admin.ModelAdmin):
         elif obj.hr_status == "Pending":
             label, status_key = "Waiting for HR approval", "Pending"
         elif obj.gm_status == "Pending":
-            label, status_key = "Waiting for GM approval", "Pending"
+            label, status_key = "Waiting for RM approval", "Pending"
 
         # ✅ Final approval (all must be approved)
         else:
-            label, status_key = "Approved by GM", "Approved"
+            label, status_key = "Approved by RM", "Approved"
 
         color_map = {
             "Approved": "#5cb85c",  # green

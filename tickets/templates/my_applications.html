@@ -15,6 +15,7 @@
             <thead class="thead-light">
                 <tr>
                     <th>#</th>
+                    <th>App Id</th>
                     <th>Request Type</th>
                     <th>Leave Type</th>
                     <th>From</th>
@@ -29,6 +30,7 @@
                 {% for app in applications %}
                 <tr>
                     <td>{{ forloop.counter }}</td>
+                    <td>{{ app.application_id }}</td>
                     <td>{{ app.request_form.name }}</td>
                     <td>
                     {% if app.leave_type %}
@@ -41,17 +43,38 @@
                     <td>{{ app.to_date }}</td>
                     <td>{{ app.total_days }}</td>
                     <td>
-                        <span class="badge 
-                            {% if app.status == 'Pending' %}badge-warning
-                            {% elif app.status == 'Approved' %}badge-success
-                            {% elif app.status == 'Rejected' %}badge-danger
-                            {% else %}badge-secondary{% endif %}">
-                            {{ app.status }}
-                        </span>
+                    {# ✅ Pending Flow #}
+                    {% if app.dep_head_status == "Pending" and app.hr_status == "Pending" and app.gm_status == "Pending" %}
+                        <span class="badge badge-warning">Pending by Dep Head</span>
+                    {% elif app.dep_head_status == "Approved" and app.hr_status == "Pending" and app.gm_status == "Pending" %}
+                        <span class="badge badge-warning">Pending by HR</span>
+                    {% elif app.dep_head_status == "Approved" and app.hr_status == "Approved" and app.gm_status == "Pending" %}
+                        <span class="badge badge-warning">Pending by RM</span>
+
+                    {# ✅ Rejected Flow #}
+                    {% elif app.dep_head_status == "Rejected" %}
+                        <span class="badge badge-danger">Rejected by Dep Head</span>
+                    {% elif app.hr_status == "Rejected" %}
+                        <span class="badge badge-danger">Rejected by HR</span>
+                    {% elif app.gm_status == "Rejected" %}
+                        <span class="badge badge-danger">Rejected by RM</span>
+
+                    {# ✅ Approved Flow #}
+                    {% elif app.dep_head_status == "Approved" and app.hr_status == "Approved" and app.gm_status == "Approved" %}
+                        <span class="badge badge-success">Approved by RM</span>
+                    {% elif app.dep_head_status == "Approved" and app.hr_status == "Approved" %}
+                        <span class="badge badge-success">Approved by HR</span>
+                    {% elif app.dep_head_status == "Approved" %}
+                        <span class="badge badge-success">Approved by Dep Head</span>
+
+                    {# Fallback #}
+                    {% else %}
+                        <span class="badge badge-secondary">Unknown</span>
+                    {% endif %}
                     </td>
                     <td>{{ app.remarks }}</td>
                     <td class="text-center">
-                        {% if app.status == 'Pending' %}
+                        {% if app.dep_head_status == 'Pending' %}
                         <div class="d-flex justify-content-center gap-2">
                             <button class="btn btn-sm btn-outline-warning" onclick="openEditModal({{ app.id }})" title="Edit">
                             <i class="fas fa-edit"></i>
