@@ -1,0 +1,36 @@
+
+body {
+    font-size: 14px;
+    line-height: 1.5;
+}
+.document-border {
+    max-width: 180mm;  /* A4 width minus margins */
+    margin: auto;
+}
+.table-sm th, .table-sm td {
+    padding: 8px 12px;
+    
+}
+.logo img {
+    max-height: 100px;
+}
+.section-title {
+    margin-top: 20px;
+    margin-bottom: 5px;
+    font-size: 14px;
+    font-weight: bold;
+    border-bottom: 1px solid #ccc;
+    padding-bottom: 3px;
+}
+.date-right {
+    text-align: right;
+    font-size: 13px;
+    margin-bottom: 5px;
+}
+.table-bordered {
+    border: 1px solid #dee2e6 !important; /* Lighter border */
+}
+.table-bordered th, 
+.table-bordered td {
+    border: 1px solid #dee2e6 !important; /* Lighter border for inside cells */
+}

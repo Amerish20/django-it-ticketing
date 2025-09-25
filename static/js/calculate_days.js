@@ -18,11 +18,29 @@ function calculateDays() {
 }
 
 document.addEventListener("DOMContentLoaded", function () {
-    const fromInput = document.getElementById("id_from_date");
-    const toInput = document.getElementById("id_to_date");
+    const fromInput = document.getElementById("from_date");
+    const toInput = document.getElementById("to_date");
 
-    if (fromInput) fromInput.addEventListener("change", calculateDays);
-    if (toInput) toInput.addEventListener("change", calculateDays);
+    let today = new Date();
+
+    // Get first day of previous month
+    let prevMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+    let year = prevMonth.getFullYear();
+    let month = String(prevMonth.getMonth() + 1).padStart(2, '0');
+    let day = "01";
+    let minDate = `${year}-${month}-${day}`;
+
+    // Allow previous month onwards
+    if (fromInput) {
+        fromInput.setAttribute("min", minDate);
+    }
+    if (toInput) {
+        toInput.setAttribute("min", minDate);
+    }
+
+    // Hook into calculate function
+    if (fromInput) fromInput.addEventListener("change", calculateTotalDays);
+    if (toInput) toInput.addEventListener("change", calculateTotalDays);
 });
 
 

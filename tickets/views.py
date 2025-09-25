@@ -10,6 +10,9 @@ from django.template.loader import render_to_string
 import datetime
 from django.views.decorators.http import require_POST
 from django.contrib.auth import logout
+from datetime import date
+import pdfkit
+from django.templatetags.static import static
 
 def login_view(request):
     if request.method == 'POST':
@@ -207,3 +210,76 @@ def change_password(request):
         return JsonResponse({'status': 'success', 'message': 'Password updated successfully.'})
 
     return render(request, 'change_password.html',{'user': user})
+
+def download_application(request, app_id,req_id):
+    if req_id == 1:
+        application = get_object_or_404(Application, id=app_id)
+
+        logo_url = request.build_absolute_uri(static('images/awc-logo.jpg'))
+        boostrap_url = request.build_absolute_uri(static('css/bootstrap.min.css'))
+        application_leave_url = request.build_absolute_uri(static('css/application_leave.css'))
+        favicon_url = request.build_absolute_uri(static('images/favicon.ico'))
+        html = render_to_string("application_leave.html", {
+            "application": application,
+            "today": date.today(),
+            "logo_url": logo_url,
+            "boostrap_url": boostrap_url,
+            "application_leave_url": application_leave_url,
+            "favicon_url": favicon_url,
+        })
+
+        config = pdfkit.configuration(wkhtmltopdf=r"C:\Program Files\wkhtmltopdf\bin\wkhtmltopdf.exe")
+        options = {
+            'enable-local-file-access': '',
+            'page-size': 'A4',
+            'encoding': 'UTF-8',
+            'margin-top': '35mm',
+            'margin-bottom': '20mm',
+            'margin-left': '20mm',
+            'margin-right': '20mm',
+            'zoom': '1.0',  # keep content at actual size
+        }
+
+        pdf = pdfkit.from_string(html, False, configuration=config, options=options)
+        response = HttpResponse(pdf,content_type="application/pdf")
+        response["Content-Disposition"] = f'attachment; filename="Application_{application.application_id}.pdf"'
+        return response
+    else: 
+        print("Else...")
+    
+
+def print_application(request, app_id, req_id):
+    # get session user id
+    user_id = request.session.get('frontend_user_id')
+
+    if not user_id:  
+        return redirect('login')  # not logged in
+
+    if req_id == 1:
+        # filter by app_id + req_id + user_id
+        application = Application.objects.filter(
+            id=app_id,
+            request_form=req_id,
+            user=user_id   # ✅ use user_id directly
+        ).first()
+
+
+        logo_url = request.build_absolute_uri(static('images/awc-logo.jpg'))
+        boostrap_url = request.build_absolute_uri(static('css/bootstrap.min.css'))
+        application_leave_url = request.build_absolute_uri(static('css/application_leave.css'))
+        favicon_url = request.build_absolute_uri(static('images/favicon.ico'))
+
+        if application:
+            return render(request, "application_leave.html", {
+                "application": application,
+                "today": date.today(),
+                "logo_url": logo_url,
+                "boostrap_url": boostrap_url,
+                "application_leave_url": application_leave_url,
+                "favicon_url": favicon_url,
+            })
+        else:
+            return render(request, "application_not_found.html")
+    else:
+        return redirect('login')
+

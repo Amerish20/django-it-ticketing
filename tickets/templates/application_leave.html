@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Application - {{ application.application_id }}</title>
+    {% load static %}
+    <link rel="icon" href="{{ favicon_url }}" type="image/x-icon">
+    <link rel="stylesheet" href="{{ boostrap_url }}">
+    <link rel="stylesheet" href="{{ application_leave_url }}">
+</head>
+<body class="container mt-3">
+
+    <div class="document-border">
+
+        <!-- Logo -->
+        <div class="text-center mb-3 logo">
+            {% load static %}
+            <img src="{{ logo_url }}" alt="Company Logo">
+            <h6 class="text-center mb-4">Leave Application Form</h6>
+        </div>
+
+        <!-- Applicant Data -->
+        <div class="d-flex justify-content-end mb-2">
+            <div class="date-right"><strong>Date : {{ today|date:"F d, Y" }}</strong></div>
+        </div>
+
+        <div class="section-title">Applicant Data</div>
+        <table class="table table-bordered table-sm">
+            <tr><th>Employee Name</th><td>{{ application.user.name }}</td></tr>
+            <tr><th>Batch Number</th><td>{{ application.user.batch_number }}</td></tr>
+            <tr><th>Designation</th><td>{{ application.user.designation }}</td></tr>
+            <tr><th>Department</th><td>{{ application.user.department }}</td></tr>
+            <tr><th>Nationality</th><td>{{ application.user.nationality }}</td></tr>
+            <tr><th>QID</th><td>{{ application.user.qid }}</td></tr>
+            <tr><th>Mobile Number</th><td>{{ application.user.mobile_number }}</td></tr>
+        </table>
+
+        <!-- Leave Data -->
+        <div class="section-title">Leave Data</div>
+        <table class="table table-bordered table-sm">
+            <tr><th>Leave Type</th><td>{{ application.leave_type }}</td></tr>
+            <tr><th>From Date</th><td>{{ application.from_date }}</td></tr>
+            <tr><th>To Date</th><td>{{ application.to_date }}</td></tr>
+            <tr><th>Total Days</th><td>{{ application.total_days }}</td></tr>
+            <tr><th>Remarks</th><td>{{ application.remarks }}</td></tr>
+        </table>
+
+        <!-- Signatures -->
+        <div class="section-title">Signatures</div>
+        <table class="table table-bordered table-sm text-center align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Employee</th>
+                    <th>Department Head</th>
+                    <th>HR Department</th>
+                    <th>Regional Manager</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr style="height:80px;">
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                </tr>
+            </tbody>
+        </table>
+
+    </div>
+
+</body>
+</html>
+<script> window.onload = function() { window.print(); }; </script>

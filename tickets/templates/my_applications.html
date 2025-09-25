@@ -74,18 +74,24 @@
                     </td>
                     <td>{{ app.remarks }}</td>
                     <td class="text-center">
-                        {% if app.dep_head_status == 'Pending' %}
                         <div class="d-flex justify-content-center gap-2">
+                            {% if app.dep_head_status == 'Pending' %}
                             <button class="btn btn-sm btn-outline-warning" onclick="openEditModal({{ app.id }})" title="Edit">
                             <i class="fas fa-edit"></i>
                             </button>&nbsp;
                             <button class="btn btn-sm btn-outline-danger" onclick="deleteApplication({{ app.id }})" title="Delete">
                             <i class="fas fa-trash-alt"></i>
-                            </button>
+                            </button>&nbsp;
+                            {% endif %}
+                            <button class="btn btn-sm btn-outline-success" onclick="downloadApplication({{ app.id }}, '{{ app.application_id }}',{{ app.request_form.id }})" title="Download">
+                              <i class="fas fa-download"></i>
+                            </button>&nbsp;
+                            <!-- Print -->
+                            {% comment %} <button class="btn btn-sm btn-outline-primary" onclick="printApplication({{ app.id }}, '{{ app.application_id }}',{{ app.request_form.id }})" title="Print">
+                                <i class="fas fa-print"></i>
+                            </button> {% endcomment %}
                         </div>
-                        {% else %}
-                        <span class="text-muted small">N/A</span>
-                        {% endif %}
+                        
                     </td>
                 </tr>
                 {% endfor %}
@@ -172,6 +178,17 @@ function setupTotalDaysCalculator() {
   if (!fromInput || !toInput || !totalDaysInput) {
     return;
   }
+
+  /* ----------- set min date = first day of previous month ----------- */
+  const today = new Date();
+  const prevMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+  const year = prevMonth.getFullYear();
+  const month = String(prevMonth.getMonth() + 1).padStart(2, '0');
+  const day = '01';
+  const minDate = `${year}-${month}-${day}`;
+
+  fromInput.setAttribute('min', minDate);
+  toInput.setAttribute('min', minDate);
 
   // avoid attaching listeners twice to the same element
   if (fromInput.dataset.tdAttached === '1' || toInput.dataset.tdAttached === '1') {
@@ -341,6 +358,33 @@ function deleteApplication(appId) {
         }
     });
 }
+
+function downloadApplication(appId, applicationId,reqId) {
+     fetch(`/download-application/${appId}/${reqId}/`, {
+        method: "GET"
+    })
+    .then(response => {
+        if (!response.ok) throw new Error("Download failed");
+        return response.blob();
+    })
+    .then(blob => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `Application_${applicationId}.pdf`;  // use applicationId in filename
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+    })
+    .catch(err => console.error(err));
+}
+
+function printApplication(appId, applicationId,reqId) {
+    // Open print view in new tab (Django view should return a PDF or print-friendly HTML)
+    window.open(`/application-print/${appId}/${reqId}/`, '_blank');
+}
+
 </script>
 
 {% endblock %}

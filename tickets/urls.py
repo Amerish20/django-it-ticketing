@@ -11,4 +11,7 @@ urlpatterns = [
     path('delete-application/<int:application_id>/', views.delete_application, name='delete_application'),
     path('submit-application/', views.submit_application, name='submit_application'),
     path('logout/', views.logout_view, name='logout'),
+    path('download-application/<int:app_id>/<int:req_id>/', views.download_application, name='download_application'),
+    path('application-print/<int:app_id>/<int:req_id>/', views.print_application, name='print_application'),
+
 ]
