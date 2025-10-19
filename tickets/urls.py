@@ -13,5 +13,7 @@ urlpatterns = [
     path('logout/', views.logout_view, name='logout'),
     path('download-application/<int:app_id>/<int:req_id>/', views.download_application, name='download_application'),
     path('application-print/<int:app_id>/<int:req_id>/', views.print_application, name='print_application'),
+    path("get-leave-types/<int:req_id>/", views.get_leave_types, name="get_leave_types"),
+    path('email-test/', views.email_test, name='email_test'),
 
 ]

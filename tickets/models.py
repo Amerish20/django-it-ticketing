@@ -66,6 +66,7 @@ class User(models.Model):
     department = models.ForeignKey(Department, on_delete=models.SET_NULL, null=True)
     designation = models.ForeignKey(Designation, on_delete=models.SET_NULL, null=True, blank=True)
     nationality = models.ForeignKey(Nationality, on_delete=models.SET_NULL, null=True, blank=True)
+    user_email = models.EmailField(max_length=255, blank=True, null=True)
     mobile_number = models.CharField(max_length=20, blank=True)
     qid = models.CharField(max_length=50, unique=True)  
     qid_expiry_date = models.DateField(default=today)  
@@ -206,6 +207,18 @@ class Application(models.Model):
     delete_status = models.BooleanField(default=0)  # 0 = not deleted, 1 = deleted
     entry_date = models.DateTimeField(auto_now_add=True)
 
+    delayed_days = models.PositiveIntegerField(blank=True, null=True)  # same as total_days logic
+    total_days_after_rejoin = models.PositiveIntegerField(blank=True, null=True)
+    rejoin_date = models.DateField(blank=True, null=True)  # same as from_date for rejoin
+    rejoin_status = models.BooleanField(default=0)  # 0 = not rejoin, 1 = rejoined
+    rejoin_remarks = models.TextField(blank=True, null=True)
+    application_id_rejoin = models.CharField(max_length=20, blank=True, null=True)  # link to original application if needed
+
+    salary_ad_month = models.ForeignKey('Month', on_delete=models.SET_NULL, null=True, blank=True)
+    salary_ad_year = models.ForeignKey('Year', on_delete=models.SET_NULL, null=True, blank=True)
+
+    email_sent = models.BooleanField(default=False)
+
     objects = ApplicationManager()
     all_objects = models.Manager()  # To access all including deleted
 
@@ -213,7 +226,7 @@ class Application(models.Model):
         if not self.application_id:
             # Generate a random 8-character unique ID
             self.application_id = f"APP-{uuid.uuid4().hex[:8].upper()}"
-        # 🔑 Final approval logic
+        # Final approval logic
         if (
             self.dep_head_status == "Approved"
             and self.hr_status == "Approved"
@@ -233,3 +246,73 @@ class Application(models.Model):
     def __str__(self):
         return f"{self.application_id} - {self.user.name} - {self.leave_type.name}"
 
+class Month(models.Model):
+    name = models.CharField(max_length=20, unique=True)
+    number = models.PositiveSmallIntegerField(unique=True)
+
+    class Meta:
+        ordering = ['number']
+
+    def __str__(self):
+        return self.name
+
+class Year(models.Model):
+    year = models.PositiveIntegerField(unique=True)
+    status = models.BooleanField(default=True)  # ✅ active/inactive field
+
+    class Meta:
+        ordering = ['-year']
+
+    def __str__(self):
+        return str(self.year)
+
+class EmailTemplateType(models.Model):
+    """
+    Master table for defining email template types.
+    Example: Leave Application, Rejoining Application, etc.
+    """
+    name = models.CharField(max_length=150, unique=True)
+    description = models.TextField(blank=True, null=True)
+    status = models.IntegerField(choices=ACTIVE_STATUS, default=1)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Email Template Type"
+        verbose_name_plural = "Email Template Types"
+
+    def __str__(self):
+        return self.name
+
+class EmailTemplate(models.Model):
+    template_type = models.ForeignKey(EmailTemplateType, on_delete=models.CASCADE, related_name="templates")
+    name = models.CharField(max_length=150)
+    subject = models.CharField(max_length=255)
+    body = models.TextField(
+        help_text="Use placeholders like {{ user_name }}, {{ from_date }}, {{ to_date }} etc. You can include HTML."
+    )
+    status = models.IntegerField(choices=ACTIVE_STATUS, default=1)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Email Template"
+        verbose_name_plural = "Email Templates"
+
+    def __str__(self):
+        return self.name
+    
+class EmailSettings(models.Model):
+    protocol = models.CharField(max_length=20, default='smtp')
+    smtp_host = models.CharField(max_length=255)
+    smtp_user = models.CharField(max_length=255)
+    smtp_pass = models.CharField(max_length=255)
+    smtp_port = models.IntegerField(default=587)
+    mailtype = models.CharField(max_length=20, default='html')
+    charset = models.CharField(max_length=50, default='utf-8')
+    from_email = models.EmailField()
+    from_name = models.CharField(max_length=255)
+    status = models.BooleanField(default=True)
+
+    def __str__(self):
+        return f"{self.from_name} ({self.smtp_host})"

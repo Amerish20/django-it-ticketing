@@ -4,10 +4,11 @@ from django.http import HttpResponse, HttpResponseRedirect
 from django.template.loader import render_to_string
 from django.utils.dateparse import parse_date
 from django.templatetags.static import static
-from django.shortcuts import render
+from django.shortcuts import render,get_object_or_404
 from django.utils.html import format_html
 from xhtml2pdf import pisa
 import datetime
+import calendar
 import csv
 from urllib.parse import urlencode
 from django.shortcuts import redirect
@@ -15,13 +16,15 @@ from django.contrib.admin.sites import site as admin_site
 from .forms import ApplicationAdminForm
 from django.db.models import Q
 from django.contrib.admin.views.main import ChangeList
-from .utils import is_same_department
+from .utils import is_same_department,email_for_application
 from django.contrib import messages
+import pdfkit
 from .models import (
     User, Ticket, Department, Designation, Item, Inventory,
     InventoryItem, InventoryReport, RequestForm, LeaveType,
-    Nationality, DepartmentHead, Application
+    Nationality, DepartmentHead, Application, Year,EmailTemplate,EmailSettings,EmailTemplateType
 )
+from django import forms
 
 admin.site.site_header = "Welcome to Al Wataniya Concrete Admin Portal"
 admin.site.site_title = "Al Wataniya Concrete – Admin Portal"
@@ -334,12 +337,12 @@ class InventoryAdmin(admin.ModelAdmin):
         
         # Determine if all inventories belong to the same user
         users = set(inv.user for inv in queryset)
-        user = users.pop() if len(users) == 1 else None  # ✅ Only one user will be shown
+        user = users.pop() if len(users) == 1 else None  # Only one user will be shown
 
         logo_url = request.build_absolute_uri(static('images/favicon.ico'))
         html = render_to_string('admin/inventory_print.html', {
             'inventories': queryset,
-            'user': user,  # ✅ pass user if single user only
+            'user': user,  # pass user if single user only
             'company_name': "Al Wataniya Concrete",
             'today': datetime.date.today(),
             'logo_url': logo_url,
@@ -449,7 +452,7 @@ def inventory_report_view(request):
         return response
 
 
-    # ✅ Inject admin context
+    # Inject admin context
     context = dict(
         admin_site.each_context(request),  # brings admin header, user info, etc.
         users=users,
@@ -549,6 +552,36 @@ class DepartmentHeadAdmin(admin.ModelAdmin):
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
 
+@admin.register(Year)
+class YearAdmin(admin.ModelAdmin):
+    list_display = ('year', 'status')
+    list_editable = ('status',)
+    ordering = ('year',)
+    search_fields = ('year',)
+
+@admin.register(EmailTemplateType)
+class EmailTemplateTypeAdmin(admin.ModelAdmin):
+    list_display = ('id', 'name', 'status', 'created_at', 'updated_at')
+    list_filter = ('status',)
+    search_fields = ('name',)
+    ordering = ('id',)
+
+@admin.register(EmailTemplate)
+class EmailTemplateAdmin(admin.ModelAdmin):
+    list_display = ('id', 'name', 'template_type', 'status', 'created_at', 'updated_at')
+    list_filter = ('status',)
+    search_fields = ('name', 'template_type__name', 'subject')
+    ordering = ('id',)
+    autocomplete_fields = ['template_type']  # useful if you have many template types
+
+
+@admin.register(EmailSettings)
+class EmailSettingsAdmin(admin.ModelAdmin):
+    list_display = ('id', 'from_name', 'from_email', 'smtp_host', 'smtp_user', 'smtp_port', 'status')
+    list_filter = ('status',)
+    search_fields = ('from_name', 'from_email', 'smtp_host', 'smtp_user')
+    ordering = ('id',)
+
 class SimpleDropdownFilter(admin.SimpleListFilter):
     def lookups(self, request, model_admin):
         return [
@@ -586,6 +619,19 @@ class GMStatusFilter(SimpleDropdownFilter):
     title = "GM Status"
     parameter_name = "gm_status"
 
+class LeaveTypeFilter(admin.SimpleListFilter):
+    title = 'Type'  # 👈 This changes the filter label
+    parameter_name = 'leave_type'
+
+    def lookups(self, request, model_admin):
+        leave_types = LeaveType.objects.all()
+        return [(lt.id, lt.name) for lt in leave_types]
+
+    def queryset(self, request, queryset):
+        if self.value():
+            return queryset.filter(leave_type_id=self.value())
+        return queryset
+
 @admin.register(Application)
 class ApplicationAdmin(admin.ModelAdmin):
     form = ApplicationAdminForm
@@ -595,15 +641,16 @@ class ApplicationAdmin(admin.ModelAdmin):
         'user_batch_number',
         'user_name',
         'user_department',
-        'user_designation',
-        'user_nationality',
-        'user_qid',
-        'leave_type',
+        'display_leave_type',
         'remarks',
         'colored_status',
         'from_date',
         'to_date',
-        'total_days',
+        'rejoin_date',
+        'display_month',
+        'display_year',
+        'display_total_days',
+        'delayed_days',
         'remarks_dep_head',
         'dep_head_status_display',
         'remarks_hr',
@@ -611,6 +658,7 @@ class ApplicationAdmin(admin.ModelAdmin):
         'remarks_gm',
         'gm_status_display',
         'entry_date',
+        'download_button',
     )
 
     limited_fields = (
@@ -618,17 +666,22 @@ class ApplicationAdmin(admin.ModelAdmin):
         'user_batch_number',
         'user_name',
         'user_department',
-        'leave_type',
+        'display_leave_type',
         'remarks',
         'from_date',
         'to_date',
-        'total_days',
+        'rejoin_date',
+        'display_month',
+        'display_year',
+        'display_total_days',
+        'delayed_days',
         'colored_status',
+        'download_button',
     )
 
-    list_per_page = 20
+    list_per_page = 10
     base_filters  = (
-        'leave_type',
+        LeaveTypeFilter,
         'from_date',
         'to_date',
     )
@@ -644,6 +697,56 @@ class ApplicationAdmin(admin.ModelAdmin):
     ]
 
     exclude = ('delete_status',)
+
+    def has_add_permission(self, request):
+        return False
+
+
+    def display_total_days(self, obj):
+        return obj.total_days_after_rejoin if obj.total_days_after_rejoin else obj.total_days
+    display_total_days.short_description = "Total Days"
+
+    def display_month(self, obj):
+        return obj.salary_ad_month if obj.salary_ad_month else None
+    display_month.short_description = "Month"
+
+    def display_year(self, obj):
+        return obj.salary_ad_year if obj.salary_ad_year else None
+    display_year.short_description = "Year"
+
+    def display_leave_type(self, obj):
+        # Check request type (assuming 1 = Leave, 2 = Rejoining)
+        if obj.request_form_id == 2:  
+            color = "#9ecaf9"  # light blue for rejoining
+            text = "Rejoining"
+        elif obj.request_form_id == 3:
+            color = "#f79ec4"  # light blue for salary advance
+            text = "Salary Advance"
+        else:
+            # For all other leave types, single color (light green for example)
+            color = "#a4f5b8"
+            text = obj.leave_type.name if obj.leave_type else "N/A"
+
+        return format_html(
+            '<span style="background-color:{}; padding:4px 8px; border-radius:4px; display:inline-block;font-weight:bold;">{}</span>',
+            color, text
+        )
+    
+    display_leave_type.short_description = "Type"
+
+    def download_button(self, obj):
+        url = reverse('admin:download_application_admin', args=[obj.id, obj.request_form_id])
+        return format_html('<a class="button" target="_blank" href="{}">Download</a>', url)
+    
+    download_button.short_description = "Action"
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path('download_application_admin/<int:app_id>/<int:req_id>/', self.admin_site.admin_view(self.download_application_admin), name='download_application_admin'),
+        ]
+        return custom_urls + urls
+    
 
     def get_list_filter(self, request):
         user = request.user
@@ -668,6 +771,7 @@ class ApplicationAdmin(admin.ModelAdmin):
         elif db_field.name == "user":
             kwargs["queryset"] = User.objects.filter(status=1)
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
+    
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
@@ -732,10 +836,10 @@ class ApplicationAdmin(admin.ModelAdmin):
     def approve_stage(self, request, queryset):
         stage_field = self._get_stage_field(request) 
         for obj in queryset:
-            if obj.request_form_id == 1:
+            if obj.request_form_id == 1 or obj.request_form_id == 2 or obj.request_form_id == 3:
                     same_dep = is_same_department(request.user, obj.user.department_id)
 
-                    # ✅ Superuser auto-approve all
+                    # Superuser auto-approve all
                     if request.user.is_superuser:
                         obj.dep_head_status = "Approved"
                         obj.hr_status = "Approved"
@@ -753,7 +857,7 @@ class ApplicationAdmin(admin.ModelAdmin):
                                     level=messages.WARNING
                                 )
                             continue
-                        else:
+                        else: 
                             self.message_user(request, f"Application {obj.application_id} approved at your stage.")
                         setattr(obj, stage_field, 'Approved')
 
@@ -776,20 +880,20 @@ class ApplicationAdmin(admin.ModelAdmin):
                                 obj.status = "Approved"
                         self.message_user(request, f"Application {obj.application_id} approved at your stage.")
                     elif request.user.groups.filter(name="HR").exists():
-                        if obj.gm_status == "Approved":
+                        if obj.gm_status == "Rejected":
                             self.message_user(
                                     request,
                                     f"Application {obj.application_id} already reviewed by RM. You can’t change the status.",
                                     level=messages.WARNING
                                 )
                             continue
-                        elif obj.gm_status == "Rejected":
-                            self.message_user(
-                                    request,
-                                    f"Application {obj.application_id} already reviewed by RM. You can’t change the status.",
-                                    level=messages.WARNING
-                                )
-                            continue
+                        # elif obj.gm_status == "Approved":
+                        #     self.message_user(
+                        #             request,
+                        #             f"Application {obj.application_id} already reviewed by RM. You can’t change the status.",
+                        #             level=messages.WARNING
+                        #         )
+                        #     continue
                         if same_dep == 1:  
                             if  obj.dep_head_status == "Pending" and obj.gm_status == "Pending":
                                 obj.hr_status = "Approved"
@@ -811,16 +915,18 @@ class ApplicationAdmin(admin.ModelAdmin):
                                 obj.status = "Pending"
                         self.message_user(request, f"Application {obj.application_id} approved at your stage.")
                     obj.save()
-
+            
+            email_for_application(obj,request,action_type="Approved") # Email setup
+            
     approve_stage.short_description = "Approve selected applicants"
 
     def reject_stage(self, request, queryset):
         stage_field = self._get_stage_field(request)
         for obj in queryset:
-            if obj.request_form_id == 1:
+            if obj.request_form_id == 1 or obj.request_form_id == 2 or obj.request_form_id == 3:
                 same_dep = is_same_department(request.user, obj.user.department_id)
 
-                # ✅ Superuser auto-rejected all
+                # Superuser auto-rejected all
                 if request.user.is_superuser:
                     obj.dep_head_status = "Rejected"
                     obj.hr_status = "Rejected"
@@ -863,7 +969,7 @@ class ApplicationAdmin(admin.ModelAdmin):
                             obj.status = "Rejected"
                     self.message_user(request, f"Application {obj.application_id} rejected at your stage.")    
                 elif request.user.groups.filter(name="HR").exists():
-                    # 🚫 HR cannot reject if GM already approved
+                    # HR cannot reject if GM already approved
                     if obj.gm_status == "Approved":
                         self.message_user(
                                 request,
@@ -897,14 +1003,52 @@ class ApplicationAdmin(admin.ModelAdmin):
                     self.message_user(request, f"Application {obj.application_id} rejected at your stage.")
                 obj.save()
 
+            email_for_application(obj,request,action_type="Rejected") # Email setup
+
     reject_stage.short_description = "Reject selected applicants"
 
-    def save_model(self, request, obj, form, change):
 
+    def save_model(self, request, obj, form, change):
         same_dep = is_same_department(request.user, obj.user.department_id)
 
-        if obj.request_form_id == 1:   # example: only apply logic for Leave Application
+        if obj.request_form_id == 3:  # Salary Advance
+            try:
+                month = obj.salary_ad_month
+                year = obj.salary_ad_year
+                if month and year:
+                    year_value = int(year.year)
+                    month_value = int(month.number)
+                    # Calculate first and last day of the month
+                    first_day = datetime.date(year_value, month_value, 1)
+                    last_day = datetime.date(year_value, month_value, calendar.monthrange(year_value, month_value)[1])
+                    obj.from_date = first_day
+                    obj.to_date = last_day
+            except Exception as e:
+                print(f"Error calculating salary advance period: {e}")
+    
+        # Rejoining logic (calculate delay_days & total_days_after_rejoin)
+        if obj.request_form_id == 2 and obj.rejoin_date:
+            try:
+                to_dt = obj.to_date
+                from_dt = obj.from_date
+                rejoin_dt = obj.rejoin_date
 
+                delay_days = 0
+                if rejoin_dt > to_dt:
+                    delay_days = (rejoin_dt - to_dt).days - 1
+                    if delay_days < 0:
+                        delay_days = 0
+
+                total_days_after_rejoin = (rejoin_dt - from_dt).days
+
+                obj.delayed_days = delay_days
+                obj.total_days_after_rejoin = total_days_after_rejoin
+
+            except Exception as e:
+                print(f"Error calculating rejoin days: {e}")
+
+        # Your existing approval logic
+        if obj.request_form_id in [1, 2, 3]:  # leave, rejoining, salary advance
             if request.user.groups.filter(name="GM").exists():
                 if obj.gm_status == "Approved":
                     if obj.dep_head_status == "Pending":
@@ -914,6 +1058,7 @@ class ApplicationAdmin(admin.ModelAdmin):
                     elif obj.dep_head_status == "Rejected" and obj.hr_status == "Pending":
                         obj.dep_head_status = "Approved"
                         obj.status = "Pending"
+                    email_for_application(obj,request,action_type="Approved") # Email setup
                 elif obj.gm_status == "Rejected":
                     if same_dep == 1:
                         if obj.dep_head_status == "Pending":
@@ -931,6 +1076,7 @@ class ApplicationAdmin(admin.ModelAdmin):
                     else:
                         if obj.dep_head_status == "Approved" and obj.hr_status == "Approved":
                             obj.status = "Rejected"
+                    email_for_application(obj,request,action_type="Rejected") # Email setup
                 elif obj.gm_status == "Pending":
                     if same_dep == 1:
                         if obj.dep_head_status == "Approved" and obj.hr_status == "Pending":
@@ -953,6 +1099,7 @@ class ApplicationAdmin(admin.ModelAdmin):
                     else:
                         if obj.dep_head_status == "Approved" and obj.hr_status == "Approved":
                             obj.status = "Pending"
+
             elif request.user.groups.filter(name="HR").exists():
                 if obj.hr_status == "Approved":
                     if obj.dep_head_status == "Pending":
@@ -964,6 +1111,7 @@ class ApplicationAdmin(admin.ModelAdmin):
                     elif obj.dep_head_status == "Rejected" and obj.gm_status == "Pending":
                         obj.dep_head_status = "Approved"
                         obj.status = "Pending"
+                    email_for_application(obj,request,action_type="Approved") # Email setup
                 elif obj.hr_status == "Rejected":
                     if same_dep == 1:
                         if obj.dep_head_status == "Pending":
@@ -977,6 +1125,7 @@ class ApplicationAdmin(admin.ModelAdmin):
                             obj.status = "Rejected"
                         elif obj.dep_head_status == "Approved" and obj.gm_status == "Pending":
                             obj.status = "Rejected"
+                    email_for_application(obj,request,action_type="Rejected") # Email setup
                 elif obj.hr_status == "Pending":
                     if same_dep == 1:
                         if obj.dep_head_status == "Approved" and obj.gm_status == "Pending":
@@ -988,7 +1137,53 @@ class ApplicationAdmin(admin.ModelAdmin):
                     else:
                         if obj.dep_head_status == "Approved" and obj.gm_status == "Pending":
                             obj.status = "Pending"
-            super().save_model(request, obj, form, change)
+            
+            if request.user.groups.filter(name="DepartmentHead").exists():
+                if obj.dep_head_status == "Approved":
+                    email_for_application(obj,request,action_type="Approved") # Email setup
+                elif obj.dep_head_status == "Rejected":
+                    email_for_application(obj,request,action_type="Rejected") # Email setup
+        # Save as usual
+        super().save_model(request, obj, form, change)
+
+        # --- Update original leave application if this is a Rejoining ---
+        if obj.request_form_id == 2 and obj.application_id_rejoin:
+            try:
+                original_app = Application.objects.get(
+                    id=obj.application_id_rejoin,
+                    request_form_id=1,  # leave applications only
+                    status='Approved',
+                    delete_status=False
+                )
+                original_app.rejoin_status = 1
+                original_app.application_id_rejoin = obj.id  # link to this rejoining
+                original_app.save(update_fields=['rejoin_status', 'application_id_rejoin'])
+            except Application.DoesNotExist:
+                pass
+    
+    def delete_model(self, request, obj):
+        """
+        Called when an object is permanently deleted from admin.
+        Reset original leave application's rejoin_status and link.
+        """
+        try:
+            if obj.request_form_id == 2 and obj.application_id_rejoin:
+                # Get the original leave application
+                original_app = Application.objects.get(
+                    id=obj.application_id_rejoin,
+                    request_form_id=1,  # leave applications only
+                    status='Approved',
+                    delete_status=False
+                )
+                # Reset the rejoining info
+                original_app.rejoin_status = 0
+                original_app.application_id_rejoin = None
+                original_app.save(update_fields=['rejoin_status', 'application_id_rejoin'])
+        except Application.DoesNotExist:
+            pass
+
+        # Now delete the rejoining application
+        super().delete_model(request, obj)
 
     def _get_stage_field(self, request):
         if request.user.is_superuser:
@@ -1018,7 +1213,7 @@ class ApplicationAdmin(admin.ModelAdmin):
         return self.all_fields if request.user.is_superuser else self.limited_fields
 
     def colored_status(self, obj):
-        # ✅ Rejection priority: GM > HR > Dep Head
+        # Rejection priority: GM > HR > Dep Head
         if obj.gm_status == "Rejected":
             label, status_key = "Rejected by RM", "Rejected"
         elif obj.hr_status == "Rejected":
@@ -1026,7 +1221,7 @@ class ApplicationAdmin(admin.ModelAdmin):
         elif obj.dep_head_status == "Rejected":
             label, status_key = "Rejected by Dep Head", "Rejected"
 
-        # ✅ Pending priority: Dep Head → HR → GM
+        # Pending priority: Dep Head → HR → GM
         elif obj.dep_head_status == "Pending":
             label, status_key = "Waiting for Dep Head approval", "Pending"
         elif obj.hr_status == "Pending":
@@ -1034,7 +1229,7 @@ class ApplicationAdmin(admin.ModelAdmin):
         elif obj.gm_status == "Pending":
             label, status_key = "Waiting for RM approval", "Pending"
 
-        # ✅ Final approval (all must be approved)
+        # Final approval (all must be approved)
         else:
             label, status_key = "Approved by RM", "Approved"
 
@@ -1083,37 +1278,222 @@ class ApplicationAdmin(admin.ModelAdmin):
     gm_status_display.short_description = "GM Status"
     gm_status_display.admin_order_field = "gm_status"
 
+    
+    # Map of all field labels
+    FIELD_LABELS = {
+        'user': "Name",
+        'request_form': "Request Form",
+        'leave_type':"Leave Type",
+        'from_date': "From Date",
+        'to_date': "To Date",
+        'total_days': "Total Days",
+        'rejoin_date': "Rejoin Date",
+        'application_id_rejoin': "Application For Rejoin",
+        'total_days_after_rejoin': "Total Days After Rejoin",
+        'delayed_days': "Delayed Days",
+        'salary_ad_month': "Salary Advance Month",
+        'salary_ad_year': "Salary Advance Year",
+        'gm_status': "RM Status",
+        'remarks_gm': "Remarks RM",
+        'hr_status': "HR Status",
+        'remarks_hr': "Remarks HR",
+        'dep_head_status': "Department Head Status",
+        'remarks_dep_head': "Remarks Dep Head",
+        'status': "Status",
+        'remarks': "Remarks",
+    }
+
+    def get_form(self, request, obj=None, **kwargs):
+        form = super().get_form(request, obj, **kwargs)
+        for field_name, label in self.FIELD_LABELS.items():
+            if field_name in form.base_fields:
+                form.base_fields[field_name].label = label
+
+        # (Show 'leave_type' only if request_form == Leave)
+        if obj:
+            if hasattr(obj, 'request_form') and obj.request_form_id == 1:  # 1 = Leave form
+                # Show only leave types for this request form and active
+                if 'leave_type' in form.base_fields:
+                    form.base_fields['leave_type'].queryset = LeaveType.objects.filter(
+                        request_form_id=obj.request_form_id, status=1
+                    )
+            else:
+                # If not leave form → remove leave_type field
+                form.base_fields.pop('leave_type', None)
+
+        return form
+
+    def get_fields(self, request, obj=None):
+        if not obj:
+            return ['user', 'request_form', 'status', 'remarks']
+        if request.user.is_superuser:
+            leave_fields = [
+                'user', 'request_form','leave_type','from_date', 'to_date', 'total_days',
+                'status', 'remarks', 'dep_head_status', 'remarks_dep_head',
+                'hr_status', 'remarks_hr', 'gm_status', 'remarks_gm'
+            ]
+            rejoin_fields = [
+                'user', 'request_form', 'rejoin_date','from_date', 'to_date','total_days','delayed_days','total_days_after_rejoin','application_id_rejoin',
+                'status','remarks','dep_head_status', 'remarks_dep_head', 'hr_status', 'remarks_hr',
+                'gm_status', 'remarks_gm'
+            ]
+            salary_fields = [
+                'user', 'request_form', 'salary_ad_month', 'salary_ad_year',
+                'status', 'remarks', 'dep_head_status', 'remarks_dep_head',
+                'hr_status', 'remarks_hr', 'gm_status', 'remarks_gm'
+            ]
+        else:
+            leave_fields = [
+                'user', 'request_form','leave_type','from_date', 'to_date', 'total_days',
+                'status', 'remarks', 'dep_head_status', 'remarks_dep_head',
+                'hr_status', 'remarks_hr', 'gm_status', 'remarks_gm'
+            ]
+            rejoin_fields = [
+                'user', 'request_form', 'rejoin_date','from_date', 'to_date',
+                'delayed_days', 'status', 'remarks',
+                'dep_head_status', 'remarks_dep_head', 'hr_status', 'remarks_hr',
+                'gm_status', 'remarks_gm'
+            ]
+            salary_fields = [
+                'user', 'request_form', 'salary_ad_month', 'salary_ad_year',
+                'status', 'remarks', 'dep_head_status', 'remarks_dep_head',
+                'hr_status', 'remarks_hr', 'gm_status', 'remarks_gm'
+            ]
+
+        leave_fields = [f for f in leave_fields if f in self.FIELD_LABELS]
+        rejoin_fields = [f for f in rejoin_fields if f in self.FIELD_LABELS]
+        salary_fields = [f for f in salary_fields if f in self.FIELD_LABELS]
+
+        if obj.request_form and hasattr(obj.request_form, 'id'):
+            if obj.request_form.id == 1:
+                return leave_fields
+            elif obj.request_form.id == 2:
+                return rejoin_fields
+            elif obj.request_form.id == 3:
+                return salary_fields
+
+        return ['user', 'request_form', 'status', 'remarks']
+
     def get_readonly_fields(self, request, obj=None):
+        """Use FIELD_LABELS keys instead of _meta.fields"""
+        all_fields = list(self.FIELD_LABELS.keys())
 
         if request.user.is_superuser:
             return []
-        
-        if not obj:
-            return super().get_readonly_fields(request, obj)
 
-        if obj.gm_status in ['Approved', 'Rejected']:
-            all_fields = [f.name for f in self.model._meta.fields]
-            if request.user.groups.filter(name="GM").exists():
-                editable_fields = ['gm_status', 'remarks_gm']
-                return [f for f in all_fields if f not in editable_fields]
+        readonly = []
+
+        if obj:
+            if obj.gm_status in ['Approved', 'Rejected']:
+                if request.user.groups.filter(name="GM").exists():
+                    readonly = [f for f in all_fields if f not in ('gm_status', 'remarks_gm')]
+                else:
+                    readonly = all_fields
+            elif request.user.groups.filter(name='DepartmentHead').exists():
+                readonly = [f for f in all_fields if f not in ('dep_head_status', 'remarks_dep_head')]
+            elif request.user.groups.filter(name='HR').exists():
+                readonly = [f for f in all_fields if f not in ('hr_status', 'remarks_hr')]
+            elif request.user.groups.filter(name='GM').exists():
+                readonly = [f for f in all_fields if f not in ('gm_status', 'remarks_gm')]
             else:
-                return all_fields
+                readonly = ['dep_head_status', 'remarks_dep_head', 'hr_status', 'remarks_hr',
+                            'gm_status', 'remarks_gm']
+        else:
+            readonly = ['dep_head_status', 'remarks_dep_head', 'hr_status', 'remarks_hr',
+                        'gm_status', 'remarks_gm']
 
-        if request.user.groups.filter(name='DepartmentHead').exists():
-            return [f.name for f in self.model._meta.fields
-                    if f.name not in ('remarks_dep_head', 'dep_head_status')]
-
-        if request.user.groups.filter(name='HR').exists():
-            return [f.name for f in self.model._meta.fields
-                    if f.name not in ('remarks_hr', 'hr_status')]
-
-        if request.user.groups.filter(name='GM').exists():
-            return [f.name for f in self.model._meta.fields
-                    if f.name not in ('remarks_gm', 'gm_status')]
-
-        readonly = list(super().get_readonly_fields(request, obj))
-        readonly.extend(['dep_head_status', 'remarks_dep_head'])
         return readonly
+
+    
+    def download_application_admin(self,request, app_id, req_id):
+        application = get_object_or_404(Application, id=app_id)
+        logo_url = request.build_absolute_uri(static('images/awc-logo.jpg'))
+        boostrap_url = request.build_absolute_uri(static('css/bootstrap.min.css'))
+        application_leave_url = request.build_absolute_uri(static('css/application_leave.css'))
+        favicon_url = request.build_absolute_uri(static('images/favicon.ico'))
+        # PDFKit config
+        config = pdfkit.configuration(wkhtmltopdf=r"C:\Program Files\wkhtmltopdf\bin\wkhtmltopdf.exe")
+
+        if req_id == 1:
+            html = render_to_string("application_leave.html", {
+                    "application": application,
+                    "today": datetime.date.today(),
+                    "logo_url": logo_url,
+                    "boostrap_url": boostrap_url,
+                    "application_leave_url": application_leave_url,
+                    "favicon_url": favicon_url,
+                })
+
+            options = {
+                'enable-local-file-access': '',
+                'page-size': 'A4',
+                'encoding': 'UTF-8',
+                'margin-top': '35mm',
+                'margin-bottom': '20mm',
+                'margin-left': '20mm',
+                'margin-right': '20mm',
+                'zoom': '1.0',  # keep content at actual size
+            }
+
+            pdf = pdfkit.from_string(html, False, options=options, configuration=config)
+
+            response = HttpResponse(pdf, content_type="application/pdf")
+            response['Content-Disposition'] = f'attachment; filename="Application_{application.application_id}.pdf"'
+            return response
+        elif req_id == 2:
+            html = render_to_string("application_rejoin.html", {
+                    "application": application,
+                    "today": datetime.date.today(),
+                    "logo_url": logo_url,
+                    "boostrap_url": boostrap_url,
+                    "application_leave_url": application_leave_url,
+                    "favicon_url": favicon_url,
+                })
+
+            options = {
+                'enable-local-file-access': '',
+                'page-size': 'A4',
+                'encoding': 'UTF-8',
+                'margin-top': '35mm',
+                'margin-bottom': '20mm',
+                'margin-left': '20mm',
+                'margin-right': '20mm',
+                'zoom': '1.0',  # keep content at actual size
+            }
+
+            pdf = pdfkit.from_string(html, False, options=options, configuration=config)
+
+            response = HttpResponse(pdf, content_type="application/pdf")
+            response['Content-Disposition'] = f'attachment; filename="Application_{application.application_id}.pdf"'
+            return response
+        elif req_id == 3:
+            html = render_to_string("application_salary_ad.html", {
+                    "application": application,
+                    "today": datetime.date.today(),
+                    "logo_url": logo_url,
+                    "boostrap_url": boostrap_url,
+                    "application_leave_url": application_leave_url,
+                    "favicon_url": favicon_url,
+                })
+
+            options = {
+                'enable-local-file-access': '',
+                'page-size': 'A4',
+                'encoding': 'UTF-8',
+                'margin-top': '35mm',
+                'margin-bottom': '20mm',
+                'margin-left': '20mm',
+                'margin-right': '20mm',
+                'zoom': '1.0',  # keep content at actual size
+            }
+
+            pdf = pdfkit.from_string(html, False, options=options, configuration=config)
+
+            response = HttpResponse(pdf, content_type="application/pdf")
+            response['Content-Disposition'] = f'attachment; filename="Application_{application.application_id}.pdf"'
+            return response
+
+
 
     def user_name(self, obj): return obj.user.name
     def user_batch_number(self, obj): return obj.user.batch_number
@@ -1134,5 +1514,6 @@ class ApplicationAdmin(admin.ModelAdmin):
             'admin/js/core.js',
             'admin/js/vendor/jquery/jquery.js',
             'admin/js/jquery.init.js',
-            'js/calculate_days.js',
+            'admin/js/admin_application_visibility.js',
         )
+    

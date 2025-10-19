@@ -97,6 +97,7 @@ fieldset .inline-heading,
     min-width: 160px;
     width: 160px;
     word-wrap: break-word;
+    font-weight: bold;
 }
 
 .aligned label:not(.vCheckboxLabel):after {

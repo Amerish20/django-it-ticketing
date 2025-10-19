@@ -4,13 +4,64 @@
 
 {% block content %}
 {% include 'partials/_dashboard_apply_modal.html' %}
+<style>
+  .no-break {
+  white-space: nowrap;
+  word-break: keep-all;
+}
+.wrap-text {
+  white-space: normal;      /* allow wrapping */
+  word-break: break-word;   /* break long words if needed */
+  overflow-wrap: break-word; /* modern alternative */
+}
+
+</style>
 <div class="container mt-5">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h3 class="mb-0"><i class="fas fa-calendar-check text-primary"></i> My Applications</h3>
-        
     </div>
 
-    <div class="table-responsive">
+     <!-- Filter Section -->
+    <div class="card shadow-sm mb-6">
+      <div class="card-body">
+        <form class="form-row" id="filterForm">
+          <!-- Request Type -->
+          <div class="form-group col-md-4">
+            <label for="filterRequestForm">Request Type</label>
+            <select id="filterRequestForm" class="form-control">
+              <option value="" disabled selected>Select Request Type</option>
+              {% for rf in request_forms %}
+                <option value="{{ rf.id }}">{{ rf.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <!-- Leave Type (only when Request=Leave) -->
+          <div class="form-group col-md-4" id="leaveTypeFilterWrapper" style="display:none;">
+            <label for="filterLeaveType">Leave Type</label>
+            <select id="filterLeaveType" class="form-control">
+             <option value="" disabled selected>Select Leave Type</option>
+              {% for lt in leave_types %}
+                <option value="{{ lt.id }}">{{ lt.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <!-- Status -->
+          <div class="form-group col-md-4">
+            <label for="filterStatus">Status</label>
+            <select id="filterStatus" class="form-control">
+              <option value="" disabled selected>Select Status</option>
+              <option value="Pending">Pending</option>
+              <option value="Approved">Approved</option>
+              <option value="Rejected">Rejected</option>
+            </select>
+          </div>
+        </form>
+      </div>
+    </div>
+    {# Leave table #}
+    <div class="table-responsive" id="applicationsTableWrapper" style="display: none;">
         <table class="table table-hover table-bordered shadow-sm" id="applicationsTable">
             <thead class="thead-light">
                 <tr>
@@ -28,7 +79,7 @@
             </thead>
             <tbody>
                 {% for app in applications %}
-                <tr>
+                <tr class="no-break">
                     <td>{{ forloop.counter }}</td>
                     <td>{{ app.application_id }}</td>
                     <td>{{ app.request_form.name }}</td>
@@ -72,7 +123,7 @@
                         <span class="badge badge-secondary">Unknown</span>
                     {% endif %}
                     </td>
-                    <td>{{ app.remarks }}</td>
+                    <td class="wrap-text">{{ app.remarks }}</td>
                     <td class="text-center">
                         <div class="d-flex justify-content-center gap-2">
                             {% if app.dep_head_status == 'Pending' %}
@@ -98,6 +149,184 @@
             </tbody>
         </table>
     </div>
+    {# Rejoining table #}
+     <div class="table-responsive" id="applicationsTableWrapper_rejoin" style="display: none;">
+        <table class="table table-hover table-bordered shadow-sm" id="applicationsTable_rejoin">
+            <thead class="thead-light">
+                <tr>
+                    <th>#</th>
+                    <th>App Id</th>
+                    <th>Request Type</th>
+                    <th style="display: none;">Type</th>
+                    <th>From-</th>
+                    <th>To</th>
+                    <th>Rejoin Date</th>
+                    <th>Delayed Days</th>
+                    <th>Total Days</th>
+                    <th>Status</th>
+                    <th class="text-center">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for app in applications %}
+                <tr class="no-break">
+                    <td>{{ forloop.counter }}</td>
+                    <td>{{ app.application_id }}</td>
+                    <td>{{ app.request_form.name }}</td>
+                    <td style="display: none;">
+                    {% if app.leave_type %}
+                        {{ app.leave_type.name }}
+                    {% else %}
+                        -
+                    {% endif %}
+                    </td>
+                    <td>{{ app.from_date }}</td>
+                    <td>{{ app.to_date }}</td>
+                    <td>{{ app.rejoin_date }}</td>
+                    <td>{{ app.delayed_days }}</td>
+                    <td>{{ app.total_days_after_rejoin }}</td>
+                    <td>
+                    {# ✅ Pending Flow #}
+                    {% if app.dep_head_status == "Pending" and app.hr_status == "Pending" and app.gm_status == "Pending" %}
+                        <span class="badge badge-warning">Pending by Dep Head</span>
+                    {% elif app.dep_head_status == "Approved" and app.hr_status == "Pending" and app.gm_status == "Pending" %}
+                        <span class="badge badge-warning">Pending by HR</span>
+                    {% elif app.dep_head_status == "Approved" and app.hr_status == "Approved" and app.gm_status == "Pending" %}
+                        <span class="badge badge-warning">Pending by RM</span>
+
+                    {# ✅ Rejected Flow #}
+                    {% elif app.dep_head_status == "Rejected" %}
+                        <span class="badge badge-danger">Rejected by Dep Head</span>
+                    {% elif app.hr_status == "Rejected" %}
+                        <span class="badge badge-danger">Rejected by HR</span>
+                    {% elif app.gm_status == "Rejected" %}
+                        <span class="badge badge-danger">Rejected by RM</span>
+
+                    {# ✅ Approved Flow #}
+                    {% elif app.dep_head_status == "Approved" and app.hr_status == "Approved" and app.gm_status == "Approved" %}
+                        <span class="badge badge-success">Approved by RM</span>
+                    {% elif app.dep_head_status == "Approved" and app.hr_status == "Approved" %}
+                        <span class="badge badge-success">Approved by HR</span>
+                    {% elif app.dep_head_status == "Approved" %}
+                        <span class="badge badge-success">Approved by Dep Head</span>
+
+                    {# Fallback #}
+                    {% else %}
+                        <span class="badge badge-secondary">Unknown</span>
+                    {% endif %}
+                    </td>
+                    <td class="text-center">
+                        <div class="d-flex justify-content-center gap-2">
+                            {% if app.dep_head_status == 'Pending' %}
+                            <button class="btn btn-sm btn-outline-warning" onclick="openEditModal({{ app.id }})" title="Edit">
+                            <i class="fas fa-edit"></i>
+                            </button>&nbsp;
+                            <button class="btn btn-sm btn-outline-danger" onclick="deleteApplication({{ app.id }})" title="Delete">
+                            <i class="fas fa-trash-alt"></i>
+                            </button>&nbsp;
+                            {% endif %}
+                            <button class="btn btn-sm btn-outline-success" onclick="downloadApplication({{ app.id }}, '{{ app.application_id }}',{{ app.request_form.id }})" title="Download">
+                              <i class="fas fa-download"></i>
+                            </button>&nbsp;
+                            <!-- Print -->
+                            {% comment %} <button class="btn btn-sm btn-outline-primary" onclick="printApplication({{ app.id }}, '{{ app.application_id }}',{{ app.request_form.id }})" title="Print">
+                                <i class="fas fa-print"></i>
+                            </button> {% endcomment %}
+                        </div>
+                        
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {# Salary Advance table #}
+    <div class="table-responsive" id="applicationsTableWrapper_salary_ad" style="display: none;">
+        <table class="table table-hover table-bordered shadow-sm" id="applicationsTable_salary_ad">
+            <thead class="thead-light">
+                <tr>
+                    <th>#</th>
+                    <th>App Id</th>
+                    <th>Request Type</th>
+                    <th style="display: none;">Type</th>
+                    <th>Month</th>
+                    <th>Year</th>
+                    <th>Status</th>
+                    <th>Remarks</th>
+                    <th class="text-center">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for app in applications %}
+                <tr class="no-break">
+                    <td>{{ forloop.counter }}</td>
+                    <td>{{ app.application_id }}</td>
+                    <td>{{ app.request_form.name }}</td>
+                    <td style="display: none;">
+                    {% if app.leave_type %}
+                        {{ app.leave_type.name }}
+                    {% else %}
+                        -
+                    {% endif %}
+                    </td>
+                    <td>{{ app.salary_ad_month }}</td>
+                    <td>{{ app.salary_ad_year }}</td>
+                    <td>
+                    {# ✅ Pending Flow #}
+                    {% if app.dep_head_status == "Pending" and app.hr_status == "Pending" and app.gm_status == "Pending" %}
+                        <span class="badge badge-warning">Pending by Dep Head</span>
+                    {% elif app.dep_head_status == "Approved" and app.hr_status == "Pending" and app.gm_status == "Pending" %}
+                        <span class="badge badge-warning">Pending by HR</span>
+                    {% elif app.dep_head_status == "Approved" and app.hr_status == "Approved" and app.gm_status == "Pending" %}
+                        <span class="badge badge-warning">Pending by RM</span>
+
+                    {# ✅ Rejected Flow #}
+                    {% elif app.dep_head_status == "Rejected" %}
+                        <span class="badge badge-danger">Rejected by Dep Head</span>
+                    {% elif app.hr_status == "Rejected" %}
+                        <span class="badge badge-danger">Rejected by HR</span>
+                    {% elif app.gm_status == "Rejected" %}
+                        <span class="badge badge-danger">Rejected by RM</span>
+
+                    {# ✅ Approved Flow #}
+                    {% elif app.dep_head_status == "Approved" and app.hr_status == "Approved" and app.gm_status == "Approved" %}
+                        <span class="badge badge-success">Approved by RM</span>
+                    {% elif app.dep_head_status == "Approved" and app.hr_status == "Approved" %}
+                        <span class="badge badge-success">Approved by HR</span>
+                    {% elif app.dep_head_status == "Approved" %}
+                        <span class="badge badge-success">Approved by Dep Head</span>
+
+                    {# Fallback #}
+                    {% else %}
+                        <span class="badge badge-secondary">Unknown</span>
+                    {% endif %}
+                    </td>
+                    <td class="wrap-text">{{ app.remarks }}</td>
+                    <td class="text-center">
+                        <div class="d-flex justify-content-center gap-2">
+                            {% if app.dep_head_status == 'Pending' %}
+                            <button class="btn btn-sm btn-outline-warning" onclick="openEditModal({{ app.id }})" title="Edit">
+                            <i class="fas fa-edit"></i>
+                            </button>&nbsp;
+                            <button class="btn btn-sm btn-outline-danger" onclick="deleteApplication({{ app.id }})" title="Delete">
+                            <i class="fas fa-trash-alt"></i>
+                            </button>&nbsp;
+                            {% endif %}
+                            <button class="btn btn-sm btn-outline-success" onclick="downloadApplication({{ app.id }}, '{{ app.application_id }}',{{ app.request_form.id }})" title="Download">
+                              <i class="fas fa-download"></i>
+                            </button>&nbsp;
+                            <!-- Print -->
+                            {% comment %} <button class="btn btn-sm btn-outline-primary" onclick="printApplication({{ app.id }}, '{{ app.application_id }}',{{ app.request_form.id }})" title="Print">
+                                <i class="fas fa-print"></i>
+                            </button>  {% endcomment %}
+                        </div>
+                        
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 </div>
 
 <!-- Edit Modal -->
@@ -114,8 +343,8 @@
     document.addEventListener('DOMContentLoaded', function () {
       {% for message in messages %}
         Swal.fire({
-          icon: 'success',
-          title: 'Success',
+          icon: '{{ message.tags }}',  // success, error, warning, info
+          title: '{{ message.tags|title }}',
           text: '{{ message|escapejs }}',
           timer: 3000,
           showConfirmButton: false
@@ -268,13 +497,18 @@ function openEditModal(appId) {
 
 // Edit section
 $(document).on("click", "#editSave", function() {
-    const form = $("#editApplicationForm");
-    const applicationId = form.find('input[name="application_id"]').val();
+    const form = $("#editApplicationForm")[0];
+    const applicationId = form.querySelector('input[name="application_id"]').value;
+
+    if (!form.checkValidity()) {
+      form.reportValidity();   // shows built-in messages
+      return;                  // stop — don't run AJAX
+    }
 
     $.ajax({
         url: `/edit-application/${applicationId}/`,
         type: "POST",
-        data: form.serialize(),
+        data: $(form).serialize(),
         success: function(response) {
             if (response.success) {
                 Swal.fire({
@@ -324,7 +558,7 @@ function getCookie(name) {
 function deleteApplication(appId) {
     Swal.fire({
         title: 'Are you sure?',
-        text: "You want to mark this application as deleted?",
+        text: "Do you want to permanently delete this application?",
         icon: 'warning',
         showCancelButton: true,
         confirmButtonColor: '#d33',
@@ -342,7 +576,7 @@ function deleteApplication(appId) {
                     if (data.success) {
                         Swal.fire(
                             'Deleted!',
-                            'Application marked as deleted.',
+                            'Application has been permanently deleted.',
                             'success'
                         ).then(() => {
                             location.reload();
@@ -385,6 +619,166 @@ function printApplication(appId, applicationId,reqId) {
     window.open(`/application-print/${appId}/${reqId}/`, '_blank');
 }
 
+
+document.addEventListener("DOMContentLoaded", function() {
+  const reqFilter = document.getElementById("filterRequestForm");
+  const leaveFilter = document.getElementById("filterLeaveType");
+  const statusFilter = document.getElementById("filterStatus");
+  const leaveWrapper = document.getElementById("leaveTypeFilterWrapper");
+
+  const leaveTableWrapper = document.getElementById("applicationsTableWrapper");
+  const rejoinTableWrapper = document.getElementById("applicationsTableWrapper_rejoin");
+  const salaryadvanceWrapper = document.getElementById("applicationsTableWrapper_salary_ad");
+
+  const leaveTbody = document.querySelector("#applicationsTable tbody");
+  const rejoinTbody = document.querySelector("#applicationsTable_rejoin tbody");
+  const salaryadvancTbody = document.querySelector("#applicationsTable_salary_ad tbody");
+
+  // Store original rows
+  const originalLeaveRows = Array.from(leaveTbody.querySelectorAll("tr"));
+  const originalRejoinRows = Array.from(rejoinTbody.querySelectorAll("tr"));
+  const originalSalaryRows = Array.from(salaryadvancTbody.querySelectorAll("tr"));
+
+  // Map Request Type ID -> its Leave Types
+  const leaveTypesMap = {
+    {% for rf in request_forms %}
+      "{{ rf.id }}": [
+        {% for lt in leave_types %}
+          {% if lt.request_form.id == rf.id %} {id: "{{ lt.id }}", name: "{{ lt.name }}"}, {% endif %}
+        {% endfor %}
+      ],
+    {% endfor %}
+  };
+
+  function updateLeaveOptions() {
+    const selectedReq = reqFilter.value;
+    leaveFilter.innerHTML = '<option value="" disabled selected>Select Leave Type</option>';
+
+    if (selectedReq && leaveTypesMap[selectedReq]?.length) {
+      leaveWrapper.style.display = "block";
+      leaveTypesMap[selectedReq].forEach(lt => {
+        const option = document.createElement("option");
+        option.value = lt.id;
+        option.text = lt.name;
+        leaveFilter.appendChild(option);
+      });
+    } else {
+      leaveWrapper.style.display = "none";
+    }
+  }
+
+  function showNoDataMessage(tbody) {
+    tbody.innerHTML = '<tr><td colspan="100%" class="text-center text-muted">No data available</td></tr>';
+  }
+
+  function applyFilters() {
+    const reqVal = reqFilter.value;
+    const leaveVal = leaveFilter.value;
+    const statusVal = statusFilter.value.toLowerCase();
+
+    if (!reqVal) {
+      leaveWrapper.style.display = "none";
+      leaveTableWrapper.style.display = "none";
+      rejoinTableWrapper.style.display = "none";
+      salaryadvanceWrapper.style.display = "none";
+      return;
+    }
+
+    if (reqVal == "1") { // Leave
+      leaveWrapper.style.display = "block";
+      leaveTableWrapper.style.display = "block";
+      rejoinTableWrapper.style.display = "none";
+      salaryadvanceWrapper.style.display = "none";
+
+      leaveTbody.innerHTML = ""; // clear tbody
+      let anyVisible = false;
+
+      originalLeaveRows.forEach(row => {
+        const rowRequestType = row.querySelector("td:nth-child(3)").innerText.trim().toLowerCase(); 
+        const rowLeave = row.querySelector("td:nth-child(4)").innerText.trim();
+        const rowStatus = row.querySelector("td:nth-child(8)").innerText.toLowerCase();
+        let show = true;
+        // Only include rows where request type is "leave"
+        if (rowRequestType !== "leave") show = false;
+        if (leaveVal && rowLeave !== leaveFilter.options[leaveFilter.selectedIndex].text) show = false;
+        if (statusVal && !rowStatus.includes(statusVal)) show = false;
+        if (show) {
+          leaveTbody.appendChild(row);
+          anyVisible = true;
+        }
+      });
+
+      if (!anyVisible) showNoDataMessage(leaveTbody);
+
+    } else if (reqVal == "2") { // Rejoining
+      leaveWrapper.style.display = "none";
+      leaveTableWrapper.style.display = "none";
+      salaryadvanceWrapper.style.display = "none";
+      rejoinTableWrapper.style.display = "block";
+
+      rejoinTbody.innerHTML = ""; // clear tbody
+      let anyVisible = false;
+
+      originalRejoinRows.forEach(row => {
+        const rowRequestType = row.querySelector("td:nth-child(4)").innerText.trim().toLowerCase();
+        const rowStatus = row.querySelector("td:nth-child(10)").innerText.toLowerCase();
+        let show = true;
+         // Only include rows where request type is "rejoining"
+        if (rowRequestType !== "rejoining") show = false;
+        if (statusVal && !rowStatus.includes(statusVal)) show = false;
+        if (show) {
+          rejoinTbody.appendChild(row);
+          anyVisible = true;
+        }
+      });
+
+      if (!anyVisible) showNoDataMessage(rejoinTbody);
+
+    } 
+    else if (reqVal == "3") { // Salary Advance
+      leaveWrapper.style.display = "none";
+      leaveTableWrapper.style.display = "none";
+      rejoinTableWrapper.style.display = "none";
+      salaryadvanceWrapper.style.display = "block";
+      
+
+      salaryadvancTbody.innerHTML = ""; // clear tbody
+      let anyVisible = false;
+
+      originalSalaryRows.forEach(row => {
+        const rowRequestType = row.querySelector("td:nth-child(4)").innerText.trim().toLowerCase();
+        const rowStatus = row.querySelector("td:nth-child(7)").innerText.toLowerCase();
+        let show = true;
+         // Only include rows where request type is "salary advance"
+        if (rowRequestType !== "salary advance") show = false;
+        if (statusVal && !rowStatus.includes(statusVal)) show = false;
+        if (show) {
+          salaryadvancTbody.appendChild(row);
+          anyVisible = true;
+        }
+      });
+
+      if (!anyVisible) showNoDataMessage(salaryadvancTbody);
+
+    } 
+    else {
+      leaveWrapper.style.display = "none";
+      leaveTableWrapper.style.display = "none";
+      rejoinTableWrapper.style.display = "none";
+      salaryadvanceWrapper.style.display = "none";
+    }
+  }
+
+  reqFilter.addEventListener("change", function() {
+    updateLeaveOptions();
+    applyFilters();
+  });
+  leaveFilter.addEventListener("change", applyFilters);
+  statusFilter.addEventListener("change", applyFilters);
+
+  updateLeaveOptions();
+  applyFilters();
+});
 </script>
 
 {% endblock %}

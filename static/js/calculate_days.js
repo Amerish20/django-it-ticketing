@@ -1,25 +1,7 @@
-function calculateDays() {
-    const fromInput = document.getElementById("id_from_date");
-    const toInput = document.getElementById("id_to_date");
-    const totalDaysInput = document.getElementById("id_total_days");
-
-    if (!fromInput || !toInput || !totalDaysInput) return;
-
-    const fromDate = new Date(fromInput.value);
-    const toDate = new Date(toInput.value);
-
-    if (!isNaN(fromDate) && !isNaN(toDate)) {
-        const timeDiff = toDate.getTime() - fromDate.getTime();
-        const days = Math.floor(timeDiff / (1000 * 3600 * 24)) + 1;
-        totalDaysInput.value = days > 0 ? days : '';
-    } else {
-        totalDaysInput.value = '';
-    }
-}
-
 document.addEventListener("DOMContentLoaded", function () {
     const fromInput = document.getElementById("from_date");
     const toInput = document.getElementById("to_date");
+    const rejoinInput = document.getElementById("rejoin_date");
 
     let today = new Date();
 
@@ -36,6 +18,9 @@ document.addEventListener("DOMContentLoaded", function () {
     }
     if (toInput) {
         toInput.setAttribute("min", minDate);
+    }
+    if (rejoinInput) {
+        rejoinInput.setAttribute("min", minDate);
     }
 
     // Hook into calculate function

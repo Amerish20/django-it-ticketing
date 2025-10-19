@@ -15,7 +15,7 @@
         <div class="text-center mb-3 logo">
             {% load static %}
             <img src="{{ logo_url }}" alt="Company Logo">
-            <h6 class="text-center mb-4">Leave Application Form</h6>
+            <h6 class="text-center mb-4">Rejoining Application Form</h6>
         </div>
 
         <!-- Applicant Data -->
@@ -38,11 +38,11 @@
         <div class="section-title">Request Data</div>
         <table class="table table-bordered table-sm">
             <tr><th>Request Type</th><td>{{ application.request_form }}</td></tr>
-            <tr><th>Leave Type</th><td>{{ application.leave_type }}</td></tr>
             <tr><th>From Date</th><td>{{ application.from_date }}</td></tr>
             <tr><th>To Date</th><td>{{ application.to_date }}</td></tr>
-            <tr><th>Total Days</th><td>{{ application.total_days }}</td></tr>
-            <tr><th>Remarks</th><td>{{ application.remarks }}</td></tr>
+            <tr><th>Rejoin Date</th><td>{{ application.rejoin_date }}</td></tr>
+            <tr><th>Delayed Days</th><td>{{ application.delayed_days }}</td></tr>
+            <tr><th>Total Days</th><td>{{ application.total_days_after_rejoin }}</td></tr>
         </table>
 
         <!-- Signatures -->

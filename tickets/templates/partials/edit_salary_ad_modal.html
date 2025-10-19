@@ -1,0 +1,42 @@
+<form method="post" id="editApplicationForm">
+    {% csrf_token %}
+    
+    <div class="modal-header bg-success text-white">
+        <h5 class="modal-title"><i class="fas fa-user-check"></i> Edit Salary Advance - {{ application.application_id }}</h5>
+        <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+    </div>
+    <div class="modal-body">
+        <div id="error-message" class="alert alert-danger d-none"></div>
+
+        <div class="form-group">
+            <label for="month">Month</label>
+            <select name="month" id="month" class="form-control" data-must-required="1" required>
+                <option value="">Select Month</option>
+                {% for m in months %}
+                <option value="{{ m.id }}" {% if application.salary_ad_month  and application.salary_ad_month.id == m.id %}selected{% endif %}>{{ m.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="year">Year</label>
+            <select name="year" id="year" class="form-control" data-must-required="1" required>
+                <option value="">Select Year</option>
+                {% for y in years %}
+                <option value="{{ y.id }}" {% if application.salary_ad_year and application.salary_ad_year.id == y.id %}selected{% endif %}>{{ y.year }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="remarks">Remarks</label>
+            <textarea name="salary_ad_remarks" id="salary_ad_remarks" class="form-control" rows="3" data-must-required="1" required>{{ application.remarks }}</textarea>
+        </div>
+        <input type="hidden" name="application_id" value="{{ application.id }}">
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+        <button type="button" class="btn btn-success" id="editSave">Save Changes</button>
+    </div>
+</form>

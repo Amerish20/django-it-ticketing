@@ -1,0 +1,72 @@
+<!-- Header -->
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title" id="editRejoinModalLabel">
+          <i class="fas fa-user-check"></i> Edit Rejoining Application - {{ application.application_id }}
+        </h5>
+        <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+
+      <!-- Body -->
+      <div class="modal-body">
+        <form method="post" id="editApplicationForm">
+          {% csrf_token %}
+          <input type="hidden" name="application_id" value="{{ application.id }}">
+
+          <!-- Last Leave Details -->
+          {% if last_leave %}
+            <div class="card shadow border-left-primary mb-3">
+              <div class="card-header bg-primary text-white">
+                <i class="fas fa-calendar-check"></i> Last Approved Leave - {{ last_leave.application_id }}
+              </div>
+              <div class="card-body">
+                <ul class="list-group list-group-flush">
+                  <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <span><i class="fas fa-umbrella-beach text-info"></i> Leave Type</span>
+                    <span class="font-weight-bold text-dark">{{ last_leave.leave_type.name }}</span>
+                  </li>
+                  <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <span><i class="fas fa-calendar-day text-success"></i> From</span>
+                    <span class="badge badge-light">{{ last_leave.from_date }}</span>
+                  </li>
+                  <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <span><i class="fas fa-calendar-day text-danger"></i> To</span>
+                    <span class="badge badge-light">{{ last_leave.to_date }}</span>
+                  </li>
+                  <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <span><i class="fas fa-clock text-warning"></i> Total Days</span>
+                    <span class="font-weight-bold">{{ last_leave.total_days }}</span>
+                  </li>
+                  <li class="list-group-item">
+                    <span><i class="fas fa-comment-dots text-secondary"></i> Remarks :</span>
+                    <p class="mb-0 mt-1 text-muted">{{ last_leave.remarks }}</p>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          {% else %}
+            <div class="alert alert-warning d-flex align-items-center" role="alert">
+              <i class="fas fa-exclamation-circle me-2"></i>
+              <span>No approved leave found</span>
+            </div>
+          {% endif %}
+
+          <!-- Editable Fields -->
+          <div class="form-group">
+            <label for="rejoin_date">Rejoin Date</label>
+            <input type="date" name="rejoin_date" id="rejoin_date" class="form-control"
+                   value="{{ application.rejoin_date_display }}" data-must-required="1" required>
+          </div>
+        </form>
+      </div>
+
+      <!-- Footer -->
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">
+          <i class="fas fa-times"></i> Close
+        </button>
+        <button type="submit" form="editRejoinForm" class="btn btn-success" id="editSave">
+          <i class="fas fa-save"></i> Save Changes
+        </button>
+      </div>

@@ -24,7 +24,7 @@
                 <select name="request_form" id="request_form" class="form-control" required onchange="toggleFormSections()">
                     <option value="">-- Select Request Type --</option>
                     {% for form in request_forms %}
-                        <option value="{{ form.name|lower }}">{{ form.name }}</option>
+                        <option value="{{ form.id }}">{{ form.name }}</option>
                     {% endfor %}
                 </select>
             </div>
@@ -33,11 +33,11 @@
             <div id="leave-form" class="form-section d-none col-12">
                 <div class="form-group">
                     <label for="leave_type">Leave Type</label>
-                    <select name="leave_type" class="form-control" required>
-                        <option value="">-- Select Leave Type --</option>
+                    <select name="leave_type" class="form-control" id="leave_type" data-must-required="1" required>
+                        {% comment %} <option value="">-- Select Leave Type --</option>
                         {% for leave_type in leave_types %}
                             <option value="{{ leave_type.id }}">{{ leave_type.name }}</option>
-                        {% endfor %}
+                        {% endfor %} {% endcomment %}
                     </select>
                 </div>
 
@@ -45,14 +45,14 @@
                 <div class="form-group">
                     <label for="from_date">From Date</label>
                     <input type="date" name="from_date" id="from_date" class="form-control"
-                        onclick="this.showPicker()" onchange="calculateTotalDays()" required>
+                        onclick="this.showPicker()" onchange="calculateTotalDays()" data-must-required="1" required>
                 </div>
 
                 <!-- To Date -->
                 <div class="form-group">
                     <label for="to_date">To Date</label>
                     <input type="date" name="to_date" id="to_date" class="form-control"
-                        onclick="this.showPicker()" onchange="calculateTotalDays()" required>
+                        onclick="this.showPicker()" onchange="calculateTotalDays()" data-must-required="1" required>
                 </div>
 
                 <!-- Total Days (Initially Hidden) -->
@@ -63,7 +63,80 @@
                 
                 <div class="form-group">
                     <label for="remarks">Remarks</label>
-                    <textarea name="remarks" class="form-control" rows="3" required></textarea>
+                    <textarea name="remarks" class="form-control" rows="3" data-must-required="1" required></textarea>
+                </div>
+            </div>
+
+            <!-- Rejoining Form -->
+            <div id="rejoin-form" class="form-section d-none col-12">
+                {% if last_leave %}
+                    <div class="card shadow border-left-primary mb-3">
+                        <div class="card-header bg-primary text-white">
+                            <i class="fas fa-calendar-check"></i> Last Approved Leave - {{ last_leave.application_id }}
+                        </div>
+                        <div class="card-body">
+                            <ul class="list-group list-group-flush">
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <span><i class="fas fa-umbrella-beach text-info"></i> Leave Type</span>
+                                <span class="font-weight-bold text-dark">{{ last_leave.leave_type.name }}</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <span><i class="fas fa-calendar-day text-success"></i> From</span>
+                                <span class="badge badge-light">{{ last_leave.from_date }}</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <span><i class="fas fa-calendar-day text-danger"></i> To</span>
+                                <span class="badge badge-light">{{ last_leave.to_date }}</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <span><i class="fas fa-clock text-warning"></i> Total Days</span>
+                                <span class="font-weight-bold">{{ last_leave.total_days }}</span>
+                            </li>
+                            <li class="list-group-item">
+                                <span><i class="fas fa-comment-dots text-secondary"></i> Remarks :</span>
+                                <p class="mb-0 mt-1 text-muted">{{ last_leave.remarks }}</p>
+                            </li>
+                            </ul>
+                        </div>
+                    </div>
+                {% else %}
+                    <div class="alert alert-warning d-flex align-items-center" role="alert">
+                        <i class="fas fa-exclamation-circle me-2"></i>
+                        <span>No approved leave found</span>
+                    </div>
+                {% endif %}
+                <div class="form-group">
+                    <label for="rejoindate">Rejoin Date</label>
+                    <input type="date" name="rejoin_date" id="rejoin_date" class="form-control"
+                        onclick="this.showPicker()" data-must-required="1" required>
+                    <input type="hidden" name="app_id" value={{last_leave.id}}>
+                </div>
+            </div>
+
+            <!-- Salary Advance -->
+            <div id="salary-form" class="form-section d-none col-12">
+                <div class="form-group">
+                    <label for="month">Month</label>
+                    <select name="month" id="month" class="form-control" data-must-required="1" required>
+                        <option value="">Select Month</option>
+                        {% for m in months %}
+                        <option value="{{ m.id }}">{{ m.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="year">Year</label>
+                    <select name="year" id="year" class="form-control" data-must-required="1" required>
+                        <option value="">Select Year</option>
+                        {% for y in years %}
+                        <option value="{{ y.id }}">{{ y.year }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="remarks">Remarks</label>
+                    <textarea name="salary_ad_remarks" id="salary_ad_remarks" class="form-control" rows="3" data-must-required="1" required></textarea>
                 </div>
             </div>
 
@@ -75,13 +148,6 @@
                 </div>
             </div>
 
-            <!-- Salary Advance -->
-            <div id="salary-form" class="form-section d-none col-12">
-                <div class="form-group">
-                    <label>Salary Advance Amount</label>
-                    <input type="number" name="advance_amount" class="form-control">
-                </div>
-            </div>
             </div>
         </div>
         </div>
