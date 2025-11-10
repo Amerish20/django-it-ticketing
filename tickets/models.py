@@ -188,13 +188,18 @@ class Application(models.Model):
     request_form = models.ForeignKey('RequestForm', on_delete=models.CASCADE)
     leave_type = models.ForeignKey('LeaveType', on_delete=models.CASCADE)
     user = models.ForeignKey('User', on_delete=models.CASCADE)
-    from_date = models.DateField()
-    to_date = models.DateField()
+    from_date = models.DateField(blank=True,null=True)
+    to_date = models.DateField(blank=True,null=True)
     total_days = models.PositiveIntegerField(default=0)
     remarks = models.TextField(blank=True)
     remarks_dep_head = models.TextField(blank=True)
     remarks_hr = models.TextField(blank=True)
     remarks_gm = models.TextField(blank=True)
+    remarks_housing = models.TextField(blank=True)
+    remarks_workshop = models.TextField(blank=True)
+    remarks_store = models.TextField(blank=True)
+    remarks_accounts = models.TextField(blank=True)
+    remarks_IT = models.TextField(blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Pending')
     delete_status = models.BooleanField(default=0)  # 0 = not deleted, 1 = deleted
     entry_date = models.DateTimeField(auto_now_add=True)
@@ -203,6 +208,12 @@ class Application(models.Model):
     dep_head_status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Pending')
     hr_status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Pending')
     gm_status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Pending')
+    housing_status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Pending')
+    workshop_status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Pending')
+    store_status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Pending')
+    accounts_status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Pending')
+    IT_status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Pending')
+    
 
     delete_status = models.BooleanField(default=0)  # 0 = not deleted, 1 = deleted
     entry_date = models.DateTimeField(auto_now_add=True)
@@ -218,6 +229,9 @@ class Application(models.Model):
     salary_ad_year = models.ForeignKey('Year', on_delete=models.SET_NULL, null=True, blank=True)
 
     email_sent = models.BooleanField(default=False)
+
+    last_working_date = models.DateField(blank=True, null=True)  
+    departure_date = models.DateField(blank=True, null=True)  
 
     objects = ApplicationManager()
     all_objects = models.Manager()  # To access all including deleted

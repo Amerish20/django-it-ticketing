@@ -141,10 +141,35 @@
             </div>
 
             <!-- Clearance -->
+            <!-- Leave Form -->
             <div id="clearance-form" class="form-section d-none col-12">
                 <div class="form-group">
-                    <label>Clearance Details</label>
-                    <input type="text" name="clearance_info" class="form-control">
+                    <label for="clearance_type">Type of Clearance</label>
+                    <select name="clearance_type" class="form-control" id="clearance_type" data-must-required="1" required>
+                        {% comment %} <option value="">-- Select Leave Type --</option>
+                        {% for leave_type in leave_types %}
+                            <option value="{{ leave_type.id }}">{{ leave_type.name }}</option>
+                        {% endfor %} {% endcomment %}
+                    </select>
+                </div>
+
+                <!-- Last working Date -->
+                <div class="form-group">
+                    <label for="last_working_date">Last Working Date</label>
+                    <input type="date" name="last_working_date" id="last_working_date" class="form-control"
+                        onclick="this.showPicker()" data-must-required="1" required>
+                </div>
+
+                <!-- Departure Date -->
+                <div class="form-group">
+                    <label for="departure_date">Departure Date</label>
+                    <input type="date" name="departure_date" id="departure_date" class="form-control"
+                        onclick="this.showPicker()" data-must-required="1" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="remarks">Remarks</label>
+                    <textarea name="remarks" class="form-control" rows="3" data-must-required="1" required></textarea>
                 </div>
             </div>
 
