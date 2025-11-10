@@ -2,6 +2,8 @@ document.addEventListener("DOMContentLoaded", function () {
     const fromInput = document.getElementById("from_date");
     const toInput = document.getElementById("to_date");
     const rejoinInput = document.getElementById("rejoin_date");
+    const lastworkingdateInput = document.getElementById("last_working_date");
+    const departuredateInput = document.getElementById("departure_date");
 
     let today = new Date();
 
@@ -21,6 +23,12 @@ document.addEventListener("DOMContentLoaded", function () {
     }
     if (rejoinInput) {
         rejoinInput.setAttribute("min", minDate);
+    }
+    if (lastworkingdateInput) {
+        lastworkingdateInput.setAttribute("min", minDate);
+    }
+    if (departuredateInput) {
+        departuredateInput.setAttribute("min", minDate);
     }
 
     // Hook into calculate function

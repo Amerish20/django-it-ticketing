@@ -47,6 +47,17 @@
             </select>
           </div>
 
+           <!-- Clearance Type (only when Request=Clearance) -->
+          <div class="form-group col-md-4" id="clearanceFilterWrapper" style="display:none;">
+            <label for="filterClearanceType">Type of Clearance</label>
+            <select id="filterClearanceType" class="form-control">
+             <option value="" disabled selected>Select Clearance Type</option>
+              {% for lt in leave_types %}
+                <option value="{{ lt.id }}">{{ lt.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
           <!-- Status -->
           <div class="form-group col-md-4">
             <label for="filterStatus">Status</label>
@@ -94,7 +105,7 @@
                     <td>{{ app.to_date }}</td>
                     <td>{{ app.total_days }}</td>
                     <td>
-                    {# ✅ Pending Flow #}
+                    {# Pending Flow #}
                     {% if app.dep_head_status == "Pending" and app.hr_status == "Pending" and app.gm_status == "Pending" %}
                         <span class="badge badge-warning">Pending by Dep Head</span>
                     {% elif app.dep_head_status == "Approved" and app.hr_status == "Pending" and app.gm_status == "Pending" %}
@@ -102,7 +113,7 @@
                     {% elif app.dep_head_status == "Approved" and app.hr_status == "Approved" and app.gm_status == "Pending" %}
                         <span class="badge badge-warning">Pending by RM</span>
 
-                    {# ✅ Rejected Flow #}
+                    {# Rejected Flow #}
                     {% elif app.dep_head_status == "Rejected" %}
                         <span class="badge badge-danger">Rejected by Dep Head</span>
                     {% elif app.hr_status == "Rejected" %}
@@ -110,13 +121,13 @@
                     {% elif app.gm_status == "Rejected" %}
                         <span class="badge badge-danger">Rejected by RM</span>
 
-                    {# ✅ Approved Flow #}
+                    {# Approved Flow #}
                     {% elif app.dep_head_status == "Approved" and app.hr_status == "Approved" and app.gm_status == "Approved" %}
-                        <span class="badge badge-success">Approved by RM</span>
-                    {% elif app.dep_head_status == "Approved" and app.hr_status == "Approved" %}
+                        <span class="badge badge-success">Approved by All</span>
+                    {% comment %} {% elif app.dep_head_status == "Approved" and app.hr_status == "Approved" %}
                         <span class="badge badge-success">Approved by HR</span>
                     {% elif app.dep_head_status == "Approved" %}
-                        <span class="badge badge-success">Approved by Dep Head</span>
+                        <span class="badge badge-success">Approved by Dep Head</span> {% endcomment %}
 
                     {# Fallback #}
                     {% else %}
@@ -186,7 +197,7 @@
                     <td>{{ app.delayed_days }}</td>
                     <td>{{ app.total_days_after_rejoin }}</td>
                     <td>
-                    {# ✅ Pending Flow #}
+                    {# Pending Flow #}
                     {% if app.dep_head_status == "Pending" and app.hr_status == "Pending" and app.gm_status == "Pending" %}
                         <span class="badge badge-warning">Pending by Dep Head</span>
                     {% elif app.dep_head_status == "Approved" and app.hr_status == "Pending" and app.gm_status == "Pending" %}
@@ -194,7 +205,7 @@
                     {% elif app.dep_head_status == "Approved" and app.hr_status == "Approved" and app.gm_status == "Pending" %}
                         <span class="badge badge-warning">Pending by RM</span>
 
-                    {# ✅ Rejected Flow #}
+                    {# Rejected Flow #}
                     {% elif app.dep_head_status == "Rejected" %}
                         <span class="badge badge-danger">Rejected by Dep Head</span>
                     {% elif app.hr_status == "Rejected" %}
@@ -202,13 +213,13 @@
                     {% elif app.gm_status == "Rejected" %}
                         <span class="badge badge-danger">Rejected by RM</span>
 
-                    {# ✅ Approved Flow #}
+                    {# Approved Flow #}
                     {% elif app.dep_head_status == "Approved" and app.hr_status == "Approved" and app.gm_status == "Approved" %}
-                        <span class="badge badge-success">Approved by RM</span>
-                    {% elif app.dep_head_status == "Approved" and app.hr_status == "Approved" %}
+                        <span class="badge badge-success">Approved by All</span>
+                    {% comment %} {% elif app.dep_head_status == "Approved" and app.hr_status == "Approved" %}
                         <span class="badge badge-success">Approved by HR</span>
                     {% elif app.dep_head_status == "Approved" %}
-                        <span class="badge badge-success">Approved by Dep Head</span>
+                        <span class="badge badge-success">Approved by Dep Head</span> {% endcomment %}
 
                     {# Fallback #}
                     {% else %}
@@ -272,7 +283,7 @@
                     <td>{{ app.salary_ad_month }}</td>
                     <td>{{ app.salary_ad_year }}</td>
                     <td>
-                    {# ✅ Pending Flow #}
+                    {# Pending Flow #}
                     {% if app.dep_head_status == "Pending" and app.hr_status == "Pending" and app.gm_status == "Pending" %}
                         <span class="badge badge-warning">Pending by Dep Head</span>
                     {% elif app.dep_head_status == "Approved" and app.hr_status == "Pending" and app.gm_status == "Pending" %}
@@ -280,7 +291,7 @@
                     {% elif app.dep_head_status == "Approved" and app.hr_status == "Approved" and app.gm_status == "Pending" %}
                         <span class="badge badge-warning">Pending by RM</span>
 
-                    {# ✅ Rejected Flow #}
+                    {# Rejected Flow #}
                     {% elif app.dep_head_status == "Rejected" %}
                         <span class="badge badge-danger">Rejected by Dep Head</span>
                     {% elif app.hr_status == "Rejected" %}
@@ -288,13 +299,13 @@
                     {% elif app.gm_status == "Rejected" %}
                         <span class="badge badge-danger">Rejected by RM</span>
 
-                    {# ✅ Approved Flow #}
+                    {# Approved Flow #}
                     {% elif app.dep_head_status == "Approved" and app.hr_status == "Approved" and app.gm_status == "Approved" %}
-                        <span class="badge badge-success">Approved by RM</span>
-                    {% elif app.dep_head_status == "Approved" and app.hr_status == "Approved" %}
+                        <span class="badge badge-success">Approved by All</span>
+                    {% comment %} {% elif app.dep_head_status == "Approved" and app.hr_status == "Approved" %}
                         <span class="badge badge-success">Approved by HR</span>
                     {% elif app.dep_head_status == "Approved" %}
-                        <span class="badge badge-success">Approved by Dep Head</span>
+                        <span class="badge badge-success">Approved by Dep Head</span> {% endcomment %}
 
                     {# Fallback #}
                     {% else %}
@@ -319,6 +330,113 @@
                             {% comment %} <button class="btn btn-sm btn-outline-primary" onclick="printApplication({{ app.id }}, '{{ app.application_id }}',{{ app.request_form.id }})" title="Print">
                                 <i class="fas fa-print"></i>
                             </button>  {% endcomment %}
+                        </div>
+                        
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {# Clearance table #}
+    <div class="table-responsive" id="applicationsTableWrapper_clearance" style="display: none;">
+        <table class="table table-hover table-bordered shadow-sm" id="applicationsTable_clearance">
+            <thead class="thead-light">
+                <tr>
+                    <th>#</th>
+                    <th>App Id</th>
+                    <th>Request Type</th>
+                    <th>Type</th>
+                    <th>Last Working Date</th>
+                    <th>Departure Date</th>
+                    <th>Status</th>
+                    <th>Remarks</th>
+                    <th class="text-center">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for app in applications %}
+                <tr class="no-break">
+                    <td>{{ forloop.counter }}</td>
+                    <td>{{ app.application_id }}</td>
+                    <td>{{ app.request_form.name }}</td>
+                    <td>
+                    {% if app.leave_type %}
+                        {{ app.leave_type.name }}
+                    {% else %}
+                        -
+                    {% endif %}
+                    </td>
+                    <td>{{ app.last_working_date }}</td>
+                    <td>{{ app.departure_date }}</td>
+                    <td>
+                    {# Pending Flow #}
+                    {% if app.dep_head_status == "Pending" %}
+                        <span class="badge badge-warning">Pending by Dep Head</span>
+                    {% elif app.dep_head_status == "Approved" and app.housing_status == "Pending" %}
+                        <span class="badge badge-warning">Pending by Housing</span>
+                    {% elif app.dep_head_status == "Approved" and app.housing_status == "Approved" and app.workshop_status == "Pending" %}
+                        <span class="badge badge-warning">Pending by Workshop</span>
+                    {% elif app.dep_head_status == "Approved" and app.housing_status == "Approved" and app.workshop_status == "Approved" and app.store_status == "Pending" %}
+                        <span class="badge badge-warning">Pending by Store</span>
+                    {% elif app.dep_head_status == "Approved" and app.housing_status == "Approved" and app.workshop_status == "Approved" and app.store_status == "Approved" and app.accounts_status == "Pending" %}
+                        <span class="badge badge-warning">Pending by Account</span>
+                    {% elif app.dep_head_status == "Approved" and app.housing_status == "Approved" and app.workshop_status == "Approved" and app.store_status == "Approved" and app.accounts_status == "Approved" and app.IT_status == "Pending" %}
+                        <span class="badge badge-warning">Pending by IT</span>
+                    {% elif app.dep_head_status == "Approved" and app.housing_status == "Approved" and app.workshop_status == "Approved" and app.store_status == "Approved" and app.accounts_status == "Approved" and app.IT_status == "Approved" and app.hr_status == "Pending" %}
+                        <span class="badge badge-warning">Pending by HR</span>
+                    {% elif app.dep_head_status == "Approved" and app.housing_status == "Approved" and app.workshop_status == "Approved" and app.store_status == "Approved" and app.accounts_status == "Approved" and app.IT_status == "Approved" and app.hr_status == "Approved" and app.gm_status == "Pending" %}
+                        <span class="badge badge-warning">Pending by RM</span>
+
+                    {# Rejected Flow #}
+                    {% elif app.dep_head_status == "Rejected" %}
+                        <span class="badge badge-danger">Rejected by Dep Head</span>
+                    {% elif app.housing_status == "Rejected" %}
+                        <span class="badge badge-danger">Rejected by Housing</span>
+                    {% elif app.workshop_status == "Rejected" %}
+                        <span class="badge badge-danger">Rejected by Workshop</span>
+                    {% elif app.store_status == "Rejected" %}
+                        <span class="badge badge-danger">Rejected by Store</span>
+                    {% elif app.accounts_status == "Rejected" %}
+                        <span class="badge badge-danger">Rejected by Account</span>
+                    {% elif app.IT_status == "Rejected" %}
+                        <span class="badge badge-danger">Rejected by IT</span>
+                    {% elif app.hr_status == "Rejected" %}
+                        <span class="badge badge-danger">Rejected by HR</span>
+                    {% elif app.gm_status == "Rejected" %}
+                        <span class="badge badge-danger">Rejected by RM</span>
+
+                    {# Approved Flow #}
+                    {% elif app.dep_head_status == "Approved" and app.housing_status == "Approved" and app.workshop_status == "Approved" and app.store_status == "Approved" and app.IT_status == "Approved" and app.accounts_status == "Approved" and app.hr_status == "Approved" and app.gm_status == "Approved" %}
+                        <span class="badge badge-success">Approved by All</span>
+                    {% comment %} {% elif app.dep_head_status == "Approved" and app.hr_status == "Approved" %}
+                        <span class="badge badge-success">Approved by HR</span>
+                    {% elif app.dep_head_status == "Approved" %}
+                        <span class="badge badge-success">Approved by Dep Head</span> {% endcomment %}
+
+                    {# Fallback #}
+                    {% else %}
+                        <span class="badge badge-secondary">Unknown</span>
+                    {% endif %}
+                    </td>
+                    <td class="wrap-text">{{ app.remarks }}</td>
+                    <td class="text-center">
+                        <div class="d-flex justify-content-center gap-2">
+                            {% if app.dep_head_status == 'Pending' %}
+                            <button class="btn btn-sm btn-outline-warning" onclick="openEditModal({{ app.id }})" title="Edit">
+                            <i class="fas fa-edit"></i>
+                            </button>&nbsp;
+                            <button class="btn btn-sm btn-outline-danger" onclick="deleteApplication({{ app.id }})" title="Delete">
+                            <i class="fas fa-trash-alt"></i>
+                            </button>&nbsp;
+                            {% endif %}
+                            <button class="btn btn-sm btn-outline-success" onclick="downloadApplication({{ app.id }}, '{{ app.application_id }}',{{ app.request_form.id }})" title="Download">
+                              <i class="fas fa-download"></i>
+                            </button>&nbsp;
+                            <!-- Print -->
+                            {% comment %} <button class="btn btn-sm btn-outline-primary" onclick="printApplication({{ app.id }}, '{{ app.application_id }}',{{ app.request_form.id }})" title="Print">
+                                <i class="fas fa-print"></i>
+                            </button> {% endcomment %}
                         </div>
                         
                     </td>
@@ -395,18 +513,23 @@ function calculateDaysBetween(fromVal, toVal) {
 
 /* ---------- setup function called AFTER modal HTML is injected ---------- */
 function setupTotalDaysCalculator() {
-
   // query inside modal content to avoid picking other inputs on page
   const modalRoot = document.getElementById('editApplicationContent');
-  if (!modalRoot) { console.error('[TD] modal root not found'); return; }
+  if (!modalRoot) { 
+    console.error('[TD] modal root not found'); 
+    return; 
+  }
 
   const fromInput = modalRoot.querySelector('input[name="from_date"]');
-  const toInput   = modalRoot.querySelector('input[name="to_date"]');
+  const toInput = modalRoot.querySelector('input[name="to_date"]');
   const totalDaysInput = modalRoot.querySelector('#total_days');
+  const rejoinInput = modalRoot.querySelector('input[name="rejoin_date"]');
+  const lastworkingdateInput = modalRoot.querySelector('input[name="last_working_date"]');
+  const departuredateInput = modalRoot.querySelector('input[name="departure_date"]');
 
-  if (!fromInput || !toInput || !totalDaysInput) {
+  {% comment %} if (!fromInput || !toInput || !totalDaysInput) {
     return;
-  }
+  } {% endcomment %}
 
   /* ----------- set min date = first day of previous month ----------- */
   const today = new Date();
@@ -416,23 +539,23 @@ function setupTotalDaysCalculator() {
   const day = '01';
   const minDate = `${year}-${month}-${day}`;
 
-  fromInput.setAttribute('min', minDate);
-  toInput.setAttribute('min', minDate);
+  // Apply min date to all applicable inputs
+  if (fromInput) fromInput.setAttribute('min', minDate);
+  if (toInput) toInput.setAttribute('min', minDate);
+  if (rejoinInput) rejoinInput.setAttribute('min', minDate);
+  if (lastworkingdateInput) lastworkingdateInput.setAttribute('min', minDate);
+  if (departuredateInput) departuredateInput.setAttribute('min', minDate);
 
-  // avoid attaching listeners twice to the same element
+  /* ---------- total days calculator logic ---------- */
   if (fromInput.dataset.tdAttached === '1' || toInput.dataset.tdAttached === '1') {
+    // already attached
   } else {
     const handler = function () {
       const days = calculateDaysBetween(fromInput.value, toInput.value);
-      if (days === null) {
-        totalDaysInput.value = '';
-      } else {
-        totalDaysInput.value = days;
-      }
+      totalDaysInput.value = days === null ? '' : days;
     };
 
-    // conservative set of events to catch both native and typing/datepicker changes
-    ['change','input','keyup','blur'].forEach(ev => {
+    ['change', 'input', 'keyup', 'blur'].forEach(ev => {
       fromInput.addEventListener(ev, handler);
       toInput.addEventListener(ev, handler);
     });
@@ -441,30 +564,19 @@ function setupTotalDaysCalculator() {
     if (window.jQuery) {
       try {
         const $from = window.jQuery(fromInput);
-        const $to   = window.jQuery(toInput);
-        // jQuery UI datepicker / common event
-        $from.on('change', handler);
-        $to.on('change', handler);
-        // bootstrap-datepicker's event
-        $from.on('changeDate', handler);
-        $to.on('changeDate', handler);
-      } catch (err) {
-
-      }
+        const $to = window.jQuery(toInput);
+        $from.on('change changeDate', handler);
+        $to.on('change changeDate', handler);
+      } catch (err) {}
     }
 
-    // mark attached so we don't double-attach if called again
     fromInput.dataset.tdAttached = '1';
     toInput.dataset.tdAttached = '1';
   }
 
-  // initial calculation (immediately show initial total_days)
+  // initial calculation
   const initial = calculateDaysBetween(fromInput.value, toInput.value);
-  if (initial === null) {
-    totalDaysInput.value = totalDaysInput.value || ''; // keep whatever server sent or blank
-  } else {
-    totalDaysInput.value = initial;
-  }
+  totalDaysInput.value = initial === null ? (totalDaysInput.value || '') : initial;
 }
 
 /* ---------- open modal: fetch HTML then inject & setup ---------- */
@@ -623,21 +735,26 @@ function printApplication(appId, applicationId,reqId) {
 document.addEventListener("DOMContentLoaded", function() {
   const reqFilter = document.getElementById("filterRequestForm");
   const leaveFilter = document.getElementById("filterLeaveType");
+  const clearanceFilter = document.getElementById("filterClearanceType");
   const statusFilter = document.getElementById("filterStatus");
   const leaveWrapper = document.getElementById("leaveTypeFilterWrapper");
+  const clearanceWrapper = document.getElementById("clearanceFilterWrapper");
 
   const leaveTableWrapper = document.getElementById("applicationsTableWrapper");
   const rejoinTableWrapper = document.getElementById("applicationsTableWrapper_rejoin");
   const salaryadvanceWrapper = document.getElementById("applicationsTableWrapper_salary_ad");
+  const clearanceadvanceWrapper = document.getElementById("applicationsTableWrapper_clearance");
 
   const leaveTbody = document.querySelector("#applicationsTable tbody");
   const rejoinTbody = document.querySelector("#applicationsTable_rejoin tbody");
   const salaryadvancTbody = document.querySelector("#applicationsTable_salary_ad tbody");
+  const clearanceadvancTbody = document.querySelector("#applicationsTable_clearance tbody");
 
   // Store original rows
   const originalLeaveRows = Array.from(leaveTbody.querySelectorAll("tr"));
   const originalRejoinRows = Array.from(rejoinTbody.querySelectorAll("tr"));
   const originalSalaryRows = Array.from(salaryadvancTbody.querySelectorAll("tr"));
+  const originalClearanceRows = Array.from(clearanceadvancTbody.querySelectorAll("tr"));
 
   // Map Request Type ID -> its Leave Types
   const leaveTypesMap = {
@@ -651,10 +768,17 @@ document.addEventListener("DOMContentLoaded", function() {
   };
 
   function updateLeaveOptions() {
-    const selectedReq = reqFilter.value;
-    leaveFilter.innerHTML = '<option value="" disabled selected>Select Leave Type</option>';
+  const selectedReq = reqFilter.value;
 
-    if (selectedReq && leaveTypesMap[selectedReq]?.length) {
+  // Reset both dropdowns
+  leaveFilter.innerHTML = '<option value="" disabled selected>Select Leave Type</option>';
+  clearanceFilter.innerHTML = '<option value="" disabled selected>Select Clearance Type</option>';
+  leaveWrapper.style.display = "none";
+  clearanceWrapper.style.display = "none";
+
+  if (selectedReq && leaveTypesMap[selectedReq]?.length) {
+    if (selectedReq == '1') {
+      // Show Leave Type options
       leaveWrapper.style.display = "block";
       leaveTypesMap[selectedReq].forEach(lt => {
         const option = document.createElement("option");
@@ -662,10 +786,19 @@ document.addEventListener("DOMContentLoaded", function() {
         option.text = lt.name;
         leaveFilter.appendChild(option);
       });
-    } else {
-      leaveWrapper.style.display = "none";
+    } else if (selectedReq == '4') {
+      // Show Clearance Type options
+      clearanceWrapper.style.display = "block";
+      leaveTypesMap[selectedReq].forEach(lt => {
+        const option = document.createElement("option");
+        option.value = lt.id;
+        option.text = lt.name;
+        clearanceFilter.appendChild(option);
+      });
     }
   }
+}
+    
 
   function showNoDataMessage(tbody) {
     tbody.innerHTML = '<tr><td colspan="100%" class="text-center text-muted">No data available</td></tr>';
@@ -674,13 +807,16 @@ document.addEventListener("DOMContentLoaded", function() {
   function applyFilters() {
     const reqVal = reqFilter.value;
     const leaveVal = leaveFilter.value;
+    const clearanceVal = clearanceFilter.value;
     const statusVal = statusFilter.value.toLowerCase();
 
     if (!reqVal) {
       leaveWrapper.style.display = "none";
+      clearanceWrapper.style.display = "none";
       leaveTableWrapper.style.display = "none";
       rejoinTableWrapper.style.display = "none";
       salaryadvanceWrapper.style.display = "none";
+      clearanceadvanceWrapper.style.display = "none";
       return;
     }
 
@@ -689,6 +825,8 @@ document.addEventListener("DOMContentLoaded", function() {
       leaveTableWrapper.style.display = "block";
       rejoinTableWrapper.style.display = "none";
       salaryadvanceWrapper.style.display = "none";
+      clearanceadvanceWrapper.style.display = "none";
+      clearanceWrapper.style.display = "none";
 
       leaveTbody.innerHTML = ""; // clear tbody
       let anyVisible = false;
@@ -714,6 +852,8 @@ document.addEventListener("DOMContentLoaded", function() {
       leaveWrapper.style.display = "none";
       leaveTableWrapper.style.display = "none";
       salaryadvanceWrapper.style.display = "none";
+      clearanceadvanceWrapper.style.display = "none";
+      clearanceWrapper.style.display = "none";
       rejoinTableWrapper.style.display = "block";
 
       rejoinTbody.innerHTML = ""; // clear tbody
@@ -734,11 +874,12 @@ document.addEventListener("DOMContentLoaded", function() {
 
       if (!anyVisible) showNoDataMessage(rejoinTbody);
 
-    } 
-    else if (reqVal == "3") { // Salary Advance
+    } else if (reqVal == "3") { // Salary Advance
       leaveWrapper.style.display = "none";
       leaveTableWrapper.style.display = "none";
       rejoinTableWrapper.style.display = "none";
+      clearanceadvanceWrapper.style.display = "none";
+      clearanceWrapper.style.display = "none";
       salaryadvanceWrapper.style.display = "block";
       
 
@@ -760,12 +901,41 @@ document.addEventListener("DOMContentLoaded", function() {
 
       if (!anyVisible) showNoDataMessage(salaryadvancTbody);
 
-    } 
+    } else if (reqVal == "4") { // Clearance
+      leaveWrapper.style.display = "none";
+      leaveTableWrapper.style.display = "none";
+      rejoinTableWrapper.style.display = "none";
+      salaryadvanceWrapper.style.display = "none";
+      clearanceWrapper.style.display = "block";
+      clearanceadvanceWrapper.style.display = "block";
+
+      clearanceadvancTbody.innerHTML = ""; // clear tbody
+      let anyVisible = false;
+
+      originalClearanceRows.forEach(row => {
+        const rowRequestType = row.querySelector("td:nth-child(3)").innerText.trim().toLowerCase(); 
+        const rowLeave = row.querySelector("td:nth-child(4)").innerText.trim();
+        const rowStatus = row.querySelector("td:nth-child(7)").innerText.toLowerCase();
+        let show = true;
+        // Only include rows where request type is "Clearance"
+        if (rowRequestType !== "clearance") show = false;
+        if (clearanceVal && rowLeave !== clearanceFilter.options[clearanceFilter.selectedIndex].text) show = false;
+        if (statusVal && !rowStatus.includes(statusVal)) show = false;
+        if (show) {
+          clearanceadvancTbody.appendChild(row);
+          anyVisible = true;
+        }
+      });
+
+      if (!anyVisible) showNoDataMessage(clearanceadvancTbody);
+
+    }
     else {
       leaveWrapper.style.display = "none";
       leaveTableWrapper.style.display = "none";
       rejoinTableWrapper.style.display = "none";
       salaryadvanceWrapper.style.display = "none";
+      clearanceadvanceWrapper.style.display = "none";
     }
   }
 
@@ -774,6 +944,7 @@ document.addEventListener("DOMContentLoaded", function() {
     applyFilters();
   });
   leaveFilter.addEventListener("change", applyFilters);
+  clearanceFilter.addEventListener("change", applyFilters);
   statusFilter.addEventListener("change", applyFilters);
 
   updateLeaveOptions();

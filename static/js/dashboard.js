@@ -27,6 +27,16 @@ function toggleFormSections() {
     activeSection = document.getElementById('salary-form');
   } else if (selected === '4') { // clearance
     activeSection = document.getElementById('clearance-form');
+    // fetch clearance types for this request_form
+    fetch(`/get-leave-types/${selected}/`)
+      .then(response => response.json())
+      .then(data => {
+        const clearanceTypeSelect = document.getElementById('clearance_type');
+        clearanceTypeSelect.innerHTML = '<option value="">Select Clearance Type</option>';
+        data.forEach(item => {
+          clearanceTypeSelect.innerHTML += `<option value="${item.id}">${item.name}</option>`;
+        });
+      });
   }
 
   if (activeSection) {

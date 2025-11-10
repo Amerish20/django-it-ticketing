@@ -289,8 +289,62 @@ def submit_application(request):
             
         # clearance
         elif request_form_id == '4':
-            # Save salary advance info
-            pass
+            clearance_type = request.POST.get('clearance_type')
+            last_working_date = request.POST.get('last_working_date')
+            departure_date = request.POST.get('departure_date')
+            remarks = request.POST.get('remarks')
+            last_working_date_dt = datetime.strptime(last_working_date, "%Y-%m-%d").date()
+            departure_date_dt = datetime.strptime(departure_date, "%Y-%m-%d").date()
+            format_last_working_date = last_working_date_dt.strftime("%d-%m-%Y")
+            format_departure_date = departure_date_dt.strftime("%d-%m-%Y")
+
+            # comment below code new_app for test the email working or not
+            new_app = Application.objects.create(
+                user=user,
+                leave_type_id=clearance_type,
+                request_form=request_form,
+                last_working_date=last_working_date,
+                departure_date=departure_date,
+                remarks=remarks,
+                status="Pending",
+                entry_date=datetime.now()
+            )
+            # Email setup
+            if auth_details and auth_details.get('auth_email_add'):
+                leave_obj = LeaveType.objects.filter(id=clearance_type).first()
+                leave_name = leave_obj.name if leave_obj else ""
+
+                # Assuming new_app is your Application instance
+                change_url = reverse('admin:tickets_application_change', args=[new_app.id])
+                # change_url = reverse('admin:tickets_application_change', args=[41])
+
+                # Optional: add changelist filters (e.g., dep_head_status=Pending)
+                filters = {
+                    '_changelist_filters': urlencode({'dep_head_status': 'Pending'})
+                }
+                admin_link = request.build_absolute_uri(f"{change_url}?{filters['_changelist_filters']}")
+                # print(admin_link)
+                # return JsonResponse({"admin_link": admin_link})
+                context = {
+                    "user_name": user.name.capitalize(),
+                    "user_batch_number": user.batch_number,
+                    "manager_name": auth_details.get('auth_name'),
+                    "clearance_type": leave_name,
+                    "last_working_date": format_last_working_date,
+                    "departure_date": format_departure_date,
+                    "to_email": auth_details.get('auth_email_add'),
+                    "admin_link": admin_link,
+                }
+                try:
+                    email_data = send_application_email(template_type=4, context_data=context)
+                    print(email_data)
+                    return JsonResponse({"email_data": email_data})
+                    if email_data:
+                        new_app.email_sent = 1
+                        new_app.save(update_fields=['email_sent'])
+                except Exception as e:
+                    print(f"Email sending failed: {e}")  # log but do not stop
+            messages.success(request, f"Clearance request submitted.")
 
         return redirect('my_applications')
 def my_applications(request):
@@ -335,8 +389,6 @@ def edit_application(request, application_id):
 
     # Check request type
     request_type = app.request_form.id  # assuming FK to RequestForm model (id=1: Leave, id=2: Rejoining)
-    email_sent = False
-    new_app = None
     # Find Department Head email via department + name match
     user = User.objects.get(id=request.session.get('frontend_user_id'))
     auth_details = find_department_head_email(user)
@@ -407,9 +459,9 @@ def edit_application(request, application_id):
                     email_data = send_application_email(template_type=5, context_data=context)
                     print(email_data)
                     return JsonResponse({"email_data": email_data})
-                    if email_data:
-                        new_app.email_sent = 1
-                        new_app.save(update_fields=['email_sent'])
+                    # if email_data:
+                    #     new_app.email_sent = 1
+                    #     new_app.save(update_fields=['email_sent'])
                 except Exception as e:
                     print(f"Email sending failed: {e}")  # log but do not stop
 
@@ -473,11 +525,8 @@ def edit_application(request, application_id):
                     }
                     try:
                         email_data = send_application_email(template_type=6, context_data=context)
-                        # print(email_data)
-                        # return JsonResponse({"email_data": email_data})
-                        if email_data:
-                            new_app.email_sent = 1
-                            new_app.save(update_fields=['email_sent'])
+                        print(email_data)
+                        return JsonResponse({"email_data": email_data})
                     except Exception as e:
                         print(f"Email sending failed: {e}")  # log but do not stop
         elif request_type == 3:  # Salary Advance
@@ -525,13 +574,71 @@ def edit_application(request, application_id):
                     }
                     try:
                         email_data = send_application_email(template_type=7, context_data=context)
-                        # print(email_data)
-                        # return JsonResponse({"email_data": email_data})
-                        if email_data:
-                            new_app.email_sent = 1
-                            new_app.save(update_fields=['email_sent'])
+                        print(email_data)
+                        return JsonResponse({"email_data": email_data})
                     except Exception as e:
                         print(f"Email sending failed: {e}")  # log but do not stop
+        elif request_type == 4:  # Clearance
+            last_working_date = request.POST.get('last_working_date')
+            departure_date = request.POST.get('departure_date')
+            remarks = request.POST.get('remarks')
+            leave_type_id = request.POST.get('clearance_type')
+
+            if not last_working_date or not departure_date:
+                return JsonResponse({'error': 'Last Working Date and Departure Date are required.'})
+
+            try:
+                last_working_date_dt = datetime.strptime(last_working_date, "%Y-%m-%d").date()
+                departure_date_dt = datetime.strptime(departure_date, "%Y-%m-%d").date()
+                format_last_working_date = last_working_date_dt.strftime("%d-%m-%Y")
+                format_departure_date = departure_date_dt.strftime("%d-%m-%Y")
+            except ValueError:
+                return JsonResponse({'error': 'Invalid date format. Please use YYYY-MM-DD.'})
+
+            if leave_type_id:
+                try:
+                    lt = LeaveType.objects.get(id=leave_type_id, status=1)
+                    app.leave_type = lt
+                except LeaveType.DoesNotExist:
+                    return JsonResponse({'error': 'Invalid clearance type selected.'})
+            else:
+                return JsonResponse({'error': 'Clearance type is required.'})
+
+            app.last_working_date = last_working_date
+            app.departure_date = departure_date
+            app.remarks = remarks
+            app.save()
+            # Email setup 
+            if auth_details and auth_details.get('auth_email_add'):
+                leave_obj = LeaveType.objects.filter(id=leave_type_id).first()
+                leave_name = leave_obj.name if leave_obj else ""
+                # Assuming new_app is your Application instance
+                change_url = reverse('admin:tickets_application_change', args=[application_id])
+                # change_url = reverse('admin:tickets_application_change', args=[41])
+
+                # Optional: add changelist filters (e.g., dep_head_status=Pending)
+                filters = {
+                    '_changelist_filters': urlencode({'dep_head_status': 'Pending'})
+                }
+                admin_link = request.build_absolute_uri(f"{change_url}?{filters['_changelist_filters']}")
+                # print(admin_link)
+                # return JsonResponse({"admin_link": admin_link})
+                context = {
+                    "user_name": user.name.capitalize(),
+                    "user_batch_number": user.batch_number,
+                    "manager_name": auth_details.get('auth_name'),
+                    "clearance_type": leave_name,
+                    "last_working_date": format_last_working_date,
+                    "departure_date": format_departure_date,
+                    "to_email": auth_details.get('auth_email_add'),
+                    "admin_link": admin_link,
+                }
+                try:
+                    email_data = send_application_email(template_type=8, context_data=context)
+                    print(email_data)
+                    return JsonResponse({"email_data": email_data})
+                except Exception as e:
+                    print(f"Email sending failed: {e}")  # log but do not stop
 
         else:
             return JsonResponse({'error': 'Unsupported request type.'}, status=400)
@@ -568,6 +675,15 @@ def edit_application(request, application_id):
         html = render_to_string(
             'partials/edit_salary_ad_modal.html',
             {'application': app,'months': months,'years': years,},
+            request=request
+        )
+    elif request_type == 4:  # Clearance
+        leave_types = LeaveType.objects.filter(status=1, request_form=app.request_form)
+        app.last_working_date_display = app.last_working_date.strftime("%Y-%m-%d") if app.last_working_date else ""
+        app.departure_date_display = app.departure_date.strftime("%Y-%m-%d") if app.departure_date else ""
+        html = render_to_string(
+            'partials/edit_clearance_modal.html',
+            {'application': app, 'leave_types': leave_types},
             request=request
         )
     else:
@@ -721,8 +837,32 @@ def download_application(request, app_id,req_id):
         response = HttpResponse(pdf,content_type="application/pdf")
         response["Content-Disposition"] = f'attachment; filename="Application_{application.application_id}.pdf"'
         return response
-    
-    
+    elif req_id == 4:
+        application = get_object_or_404(Application, id=app_id)
+        html = render_to_string("application_clearance.html", {
+            "application": application,
+            "today": date.today(),
+            "logo_url": logo_url,
+            "boostrap_url": boostrap_url,
+            "application_leave_url": application_leave_url,
+            "favicon_url": favicon_url,
+        })
+
+        options = {
+            'enable-local-file-access': '',
+            'page-size': 'A4',
+            'encoding': 'UTF-8',
+            'margin-top': '35mm',
+            'margin-bottom': '20mm',
+            'margin-left': '20mm',
+            'margin-right': '20mm',
+            'zoom': '1.0',  # keep content at actual size
+        }
+
+        pdf = pdfkit.from_string(html, False, configuration=config, options=options)
+        response = HttpResponse(pdf,content_type="application/pdf")
+        response["Content-Disposition"] = f'attachment; filename="Application_{application.application_id}.pdf"'
+        return response
 
 def print_application(request, app_id, req_id):
     # get session user id
@@ -784,6 +924,25 @@ def print_application(request, app_id, req_id):
 
         if application:
             return render(request, "application_salary_ad.html", {
+                "application": application,
+                "today": date.today(),
+                "logo_url": logo_url,
+                "boostrap_url": boostrap_url,
+                "application_leave_url": application_leave_url,
+                "favicon_url": favicon_url,
+            })
+        else:
+            return render(request, "application_not_found.html")
+    elif req_id == 4:
+        # filter by app_id + req_id + user_id
+        application = Application.objects.filter(
+            id=app_id,
+            request_form=req_id,
+            user=user_id   # use user_id directly
+        ).first()
+
+        if application:
+            return render(request, "application_clearance.html", {
                 "application": application,
                 "today": date.today(),
                 "logo_url": logo_url,
