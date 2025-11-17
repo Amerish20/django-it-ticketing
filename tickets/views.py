@@ -52,7 +52,8 @@ def create_ticket(request):
     return render(request, 'create_ticket.html', {'user': user, 'items': items,'tickets': user_tickets})
 
 def logout_view(request):
-    request.session.flush()
+    if 'frontend_user_id' in request.session:
+        del request.session['frontend_user_id']
     return redirect('login')
 
 def dashboard(request):
@@ -720,7 +721,20 @@ def delete_application(request, application_id):
     return JsonResponse({'success': True})
     
 def custom_logout(request):
+     # --- Keep your custom session data before logout ---
+    preserved_data = {}
+    for key in list(request.session.keys()):
+        # Save only your custom (non-auth) keys
+        if not key.startswith('_auth_'):  # Django’s internal keys
+            preserved_data[key] = request.session[key]
+
+    # --- Perform logout (removes only auth-related data) ---
     logout(request)
+
+    # --- Restore your preserved session keys ---
+    for key, value in preserved_data.items():
+        request.session[key] = value
+
     return render(request, "admin/logged_out.html")
 
 def change_password(request):
