@@ -1,30 +1,40 @@
 import os
 from .settings import *
 from .settings import BASE_DIR
+import dj_database_url
 
-# Azure environment variables
-SECRET_KEY = os.environ['SECRET']
+# ========================
+# Secret Key
+# ========================
+SECRET_KEY = os.environ.get('SECRET', SECRET_KEY)  # fallback to settings.py
 
-ALLOWED_HOSTS = [os.environ['WEBSITE_HOSTNAME']]
-CSRF_TRUSTED_ORIGINS = ['https://' + os.environ['WEBSITE_HOSTNAME']]
+# ========================
+# Allowed Hosts
+# ========================
+WEBSITE_HOSTNAME = os.environ.get('WEBSITE_HOSTNAME')
+if WEBSITE_HOSTNAME:
+    ALLOWED_HOSTS = [WEBSITE_HOSTNAME]
+    CSRF_TRUSTED_ORIGINS = [f"https://{WEBSITE_HOSTNAME}"]
+
 DEBUG = False
 
-# WhiteNoise
+# ========================
+# Static Files (WhiteNoise)
+# ========================
 MIDDLEWARE.insert(1, 'whitenoise.middleware.WhiteNoiseMiddleware')
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
-# Azure Postgres connection
-conn_str = os.environ['AZURE_POSTGRESQL_CONNECTIONSTRING']
-conn_str_params = {pair.split('=')[0]: pair.split('=')[1] for pair in conn_str.split(' ')}
+# ========================
+# Database
+# ========================
+conn_str = os.environ.get("AZURE_POSTGRESQL_CONNECTIONSTRING")
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': conn_str_params['dbname'],
-        'HOST': conn_str_params['host'],
-        'USER': conn_str_params['user'],
-        'PASSWORD': conn_str_params['password'],
-        'PORT': conn_str_params.get('port', '5432'),
+if conn_str:
+    DATABASES = {
+        'default': dj_database_url.parse(
+            conn_str,
+            conn_max_age=600,
+            ssl_require=True
+        )
     }
-}
