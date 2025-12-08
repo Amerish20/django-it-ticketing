@@ -27,8 +27,8 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
     
-    - name: Run collectstaics
-      run: python manage.py collectstaics
+    - name: Run collectstatic
+      run: python manage.py collectstatic --noinput
 
     - name: Login to Azure
       uses: azure/login@v2
@@ -40,6 +40,6 @@ jobs:
     - name: Deploy to Azure Web App
       uses: azure/webapps-deploy@v3
       with:
-        app-name: wataniyaticket   # change to your actual app name
+        app-name: wataniyaticket
         slot-name: Production
         package: .
