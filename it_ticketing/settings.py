@@ -136,5 +136,5 @@ STATICFILES_DIRS = [
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-if os.environ.get("WEBSITE_HOSTNAME"):  
-    from .deployment import *
+# if os.environ.get("WEBSITE_HOSTNAME"):  
+#     from .deployment import *

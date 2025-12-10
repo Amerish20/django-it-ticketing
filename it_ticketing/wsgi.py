@@ -11,7 +11,7 @@ import os
 
 from django.core.wsgi import get_wsgi_application
 
-settings_module = 'it_ticketing.deployment' if 'WEBSITE_HOSTNAME' in os.environ else 'it_ticketing.settings'
+# settings_module = 'it_ticketing.deployment' if 'WEBSITE_HOSTNAME' in os.environ else 'it_ticketing.settings'
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'it_ticketing.settings')
 

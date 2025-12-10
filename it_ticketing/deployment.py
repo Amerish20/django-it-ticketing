@@ -1,40 +1,29 @@
 import os
 from .settings import *
-from .settings import BASE_DIR
-import dj_database_url
-
-# ========================
-# Secret Key
-# ========================
-SECRET_KEY = os.environ.get('SECRET', SECRET_KEY)  # fallback to settings.py
-
-# ========================
-# Allowed Hosts
-# ========================
-WEBSITE_HOSTNAME = os.environ.get('WEBSITE_HOSTNAME')
-if WEBSITE_HOSTNAME:
-    ALLOWED_HOSTS = [WEBSITE_HOSTNAME]
-    CSRF_TRUSTED_ORIGINS = [f"https://{WEBSITE_HOSTNAME}"]
 
 DEBUG = False
 
-# ========================
-# Static Files (WhiteNoise)
-# ========================
-MIDDLEWARE.insert(1, 'whitenoise.middleware.WhiteNoiseMiddleware')
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+ALLOWED_HOSTS = [os.environ["WEBSITE_HOSTNAME"]]
+CSRF_TRUSTED_ORIGINS = [f'https://{os.environ["WEBSITE_HOSTNAME"]}']
 
-# ========================
-# Database
-# ========================
-conn_str = os.environ.get("AZURE_POSTGRESQL_CONNECTIONSTRING")
+# Azure PostgreSQL Connection String
+conn_str = os.environ["AZURE_POSTGRESQL_CONNECTIONSTRING"]
 
-if conn_str:
-    DATABASES = {
-        'default': dj_database_url.parse(
-            conn_str,
-            conn_max_age=600,
-            ssl_require=True
-        )
+# Azure gives: host=xxx dbname=xxx user=xxx password=xxx port=5432
+parts = conn_str.split(" ")
+params = dict(p.split("=") for p in parts if "=" in p)
+
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": params["dbname"],
+        "USER": params["user"],
+        "PASSWORD": params["password"],
+        "HOST": params["host"],
+        "PORT": params.get("port", "5432"),
     }
+}
+
+# Static files for Azure
+MIDDLEWARE.insert(1, 'whitenoise.middleware.WhiteNoiseMiddleware')
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
