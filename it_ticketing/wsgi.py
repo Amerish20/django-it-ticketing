@@ -8,11 +8,13 @@ https://docs.djangoproject.com/en/5.2/howto/deployment/wsgi/
 """
 
 import os
-
 from django.core.wsgi import get_wsgi_application
 
-# settings_module = 'it_ticketing.deployment' if 'WEBSITE_HOSTNAME' in os.environ else 'it_ticketing.settings'
-
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'it_ticketing.settings')
+# If running on Azure (WEBSITE_HOSTNAME exists), use deployment settings
+if 'WEBSITE_HOSTNAME' in os.environ:
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'it_ticketing.deployment')
+else:
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'it_ticketing.settings')
 
 application = get_wsgi_application()
+
