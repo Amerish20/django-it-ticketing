@@ -3,11 +3,10 @@ import os
 import sys
 
 def main():
-    if 'WEBSITE_HOSTNAME' in os.environ:
-        os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'it_ticketing.deployment')
-    else:
-        os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'it_ticketing.settings')
-
+    os.environ.setdefault(
+        'DJANGO_SETTINGS_MODULE',
+        'it_ticketing.deployment' if 'WEBSITE_HOSTNAME' in os.environ else 'it_ticketing.settings'
+    )
     from django.core.management import execute_from_command_line
     execute_from_command_line(sys.argv)
 

@@ -3,6 +3,7 @@ from .settings import *
 
 ALLOWED_HOSTS = [os.environ.get("WEBSITE_HOSTNAME")]
 CSRF_TRUSTED_ORIGINS = [f"https://{os.environ.get('WEBSITE_HOSTNAME')}"]
+SECRET_KEY = os.environ['SECRET_KEY']
 DEBUG = False
 # ---------------------------------------
 # Database (Azure PostgreSQL Flexible Server)
