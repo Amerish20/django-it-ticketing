@@ -1,43 +1,36 @@
 import os
-from .settings import *
+from urllib.parse import urlparse
 
-ALLOWED_HOSTS = [os.environ.get("WEBSITE_HOSTNAME")]
-CSRF_TRUSTED_ORIGINS = [f"https://{os.environ.get('WEBSITE_HOSTNAME')}"]
-SECRET_KEY = os.environ['SECRET_KEY']
-DEBUG = False
-# ---------------------------------------
-# Database (Azure PostgreSQL Flexible Server)
-# ---------------------------------------
+DATABASES = {}
 
-# Example format:
-# dbname=wataniyaticket-database host=wataniyaticket-server.postgres.database.azure.com
-# user=yehtkhqifw password=Z2TvqpRz2xNZ$n23 sslmode=require
+conn_str = os.environ.get("AZURE_POSTGRESQL_CONNECTIONSTRING")
 
-conn_str = os.environ["AZURE_POSTGRESQL_CONNECTIONSTRING"]
+if conn_str.startswith("postgres"):
+    # URL style (recommended)
+    url = urlparse(conn_str)
 
-parts = conn_str.split(" ")
-params = dict(p.split("=") for p in parts if "=" in p)
+    DATABASES["default"] = {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": url.path[1:],   # removes leading /
+        "USER": url.username,
+        "PASSWORD": url.password,
+        "HOST": url.hostname,
+        "PORT": url.port or "5432",
+        "OPTIONS": {"sslmode": "require"},
+    }
+else:
+    # key=value style
+    params = dict(
+        item.split("=", 1)
+        for item in conn_str.split()
+    )
 
-DATABASES = {
-    "default": {
+    DATABASES["default"] = {
         "ENGINE": "django.db.backends.postgresql",
         "NAME": params["dbname"],
         "USER": params["user"],
         "PASSWORD": params["password"],
         "HOST": params["host"],
-        "PORT": params.get("port", "5432"),
-        "OPTIONS": {
-            "sslmode": "require",
-        },
+        "PORT": "5432",
+        "OPTIONS": {"sslmode": "require"},
     }
-}
-
-# -------------------------------------------------
-# STATIC files on Azure using WhiteNoise
-# -------------------------------------------------
-MIDDLEWARE.insert(1, "whitenoise.middleware.WhiteNoiseMiddleware")
-
-STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
-
-STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
-STATIC_URL = "/static/"
