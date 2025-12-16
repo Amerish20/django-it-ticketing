@@ -1,5 +1,16 @@
 import os
 from urllib.parse import urlparse
+from .settings import *
+
+ROOT_URLCONF = "it_ticketing.urls"
+
+DEBUG = True  # keep ON for now
+
+ALLOWED_HOSTS = ["*"]
+
+CSRF_TRUSTED_ORIGINS = ["https://*.azurewebsites.net"]
+
+SECRET_KEY = os.environ["SECRET_KEY"]
 
 DATABASES = {}
 
@@ -34,3 +45,11 @@ else:
         "PORT": "5432",
         "OPTIONS": {"sslmode": "require"},
     }
+
+# ---------------------------------------
+# Static files
+# ---------------------------------------
+MIDDLEWARE.insert(1, "whitenoise.middleware.WhiteNoiseMiddleware")
+
+STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
+STATIC_URL = "/static/"
